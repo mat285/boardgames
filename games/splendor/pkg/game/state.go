@@ -37,6 +37,8 @@ func (s State) apply(move Move) (state State, valid bool, err error) {
 		state, valid, err = s.applyPurchase(*move.Purchase)
 	} else if move.Reserve != nil {
 		state, valid, err = s.applyReserve(*move.Reserve)
+	} else if move.Pass != nil {
+		state, valid, err = s, true, nil
 	} else {
 		return s, false, fmt.Errorf("No move")
 	}

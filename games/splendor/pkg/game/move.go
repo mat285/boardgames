@@ -11,6 +11,7 @@ import (
 var _ v1alpha1.Move = new(Move)
 
 type Move struct {
+	Pass     *PassMove
 	Collect  *CollectMove
 	Purchase *CardMove
 	Reserve  *CardMove
@@ -25,8 +26,17 @@ type CardMove struct {
 	Card items.Card
 }
 
+// this way there's always at least one option
+type PassMove struct{}
+
 func NewMove() *Move {
 	return &Move{}
+}
+
+func NewPassMove() *Move {
+	return &Move{
+		Pass: &PassMove{},
+	}
 }
 
 func (m *Move) Apply(raw v1alpha1.StateData) (*v1alpha1.MoveResult, error) {
@@ -50,19 +60,6 @@ func (m *Move) Apply(raw v1alpha1.StateData) (*v1alpha1.MoveResult, error) {
 	return res, err
 
 }
-
-func (m *Move) apply(state State) (State, bool, error) {
-	if m.Collect != nil {
-		return state.applyCollect(*m.Collect)
-	} else if m.Purchase != nil {
-		return state.applyPurchase(*m.Purchase)
-	} else if m.Reserve != nil {
-		return state.applyReserve(*m.Reserve)
-	} else {
-		return state, false, fmt.Errorf("No move")
-	}
-}
-
 func (m *Move) Validate() (bool, error) {
 	nonNil := 0
 	if m.Collect != nil {
@@ -72,6 +69,9 @@ func (m *Move) Validate() (bool, error) {
 		nonNil++
 	}
 	if m.Reserve != nil {
+		nonNil++
+	}
+	if m.Pass != nil {
 		nonNil++
 	}
 	if nonNil != 1 {

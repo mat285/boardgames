@@ -9,6 +9,7 @@ func (s State) ValidMoves() ([]v1alpha1.Move, error) {
 	moves := s.ValidCollectMoves()
 	moves = append(moves, s.ValidPurchaseMoves()...)
 	moves = append(moves, s.ValidReserveMoves()...)
+	moves = append(moves, NewPassMove())
 	return MoveSliceToMoveSlice(moves), nil
 }
 
