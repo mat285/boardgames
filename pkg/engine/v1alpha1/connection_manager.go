@@ -116,7 +116,7 @@ package v1alpha1
 // 	return nil
 // }
 
-// func (c *ConnectionManager) RequestMove(ctx context.Context, player *v1alpha1.Player, req v1alpha1.MoveRequest) (v1alpha1.Move, error) {
+// func (c *ConnectionManager) Request(ctx context.Context, player *v1alpha1.Player, req v1alpha1.MoveRequest) (v1alpha1.Move, error) {
 // 	if !c.running {
 // 		return nil, fmt.Errorf("Manager not running")
 // 	}
@@ -127,7 +127,7 @@ package v1alpha1
 // 		return nil, fmt.Errorf("Player missing from pool")
 // 	}
 
-// 	move, err := conn.RequestMove(ctx, req)
+// 	move, err := conn.Request(ctx, req)
 // 	if IsError(err, ErrTimeout) {
 // 		// return c.Engine.pause(ctx)
 // 	}

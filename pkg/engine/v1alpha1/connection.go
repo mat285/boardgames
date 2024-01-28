@@ -44,7 +44,7 @@ func (c *Connection) Disconnect(ctx context.Context) {
 	c.alert <- c
 }
 
-func (c *Connection) RequestMove(ctx context.Context, req v1alpha1.MoveRequest) (v1alpha1.Move, error) {
+func (c *Connection) Request(ctx context.Context, req v1alpha1.MoveRequest) (v1alpha1.Move, error) {
 	err := c.WaitOrTimeout(ctx)
 	if err != nil {
 		return nil, err

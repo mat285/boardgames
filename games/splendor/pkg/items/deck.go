@@ -20,7 +20,7 @@ func (d Deck) Deal(num int) Deck {
 
 	for i := 0; i < num; i++ {
 		var card Card
-		card, pile = PickRandom(pile)
+		card, pile = PickRandomCard(pile)
 		shown = append(shown, card)
 	}
 
@@ -42,7 +42,7 @@ func (d Deck) RemoveAndReplace(card Card) Deck {
 	return d.Deal(1)
 }
 
-func PickRandom(cards []Card) (Card, []Card) {
+func PickRandomCard(cards []Card) (Card, []Card) {
 	if len(cards) == 0 {
 		return Card{}, []Card{}
 	}

@@ -1,5 +1,10 @@
 package items
 
+import (
+	"fmt"
+	"strings"
+)
+
 type Gem string
 
 const (
@@ -26,5 +31,22 @@ func Gems() GemCount {
 		Ruby:     7,
 		Obsidian: 7,
 		Wild:     5,
+	}
+}
+
+func ParseGem(str string) (Gem, error) {
+	switch strings.ToLower(str) {
+	case string(GemDiamond), "white":
+		return GemDiamond, nil
+	case string(GemSapphire), "blue":
+		return GemSapphire, nil
+	case string(GemEmerald), "green":
+		return GemEmerald, nil
+	case string(GemRuby), "red":
+		return GemRuby, nil
+	case string(GemObsidian), "black":
+		return GemObsidian, nil
+	default:
+		return "", fmt.Errorf("Not a gem")
 	}
 }

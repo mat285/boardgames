@@ -14,7 +14,7 @@ func NewBoard() Board {
 		LevelOne:   NewDeck(LevelOneCards()).Deal(4),
 		LevelTwo:   NewDeck(LevelTwoCards()).Deal(4),
 		LevelThree: NewDeck(LevelThreeCards()).Deal(4),
-		Bonuses:    Bonuses(),
+		Bonuses:    RandomBonuses(3),
 	}
 
 }

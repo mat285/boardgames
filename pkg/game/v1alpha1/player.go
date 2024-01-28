@@ -7,7 +7,8 @@ import (
 )
 
 type PlayerConnection interface {
-	RequestMove(context.Context, MoveRequest) (Move, error)
+	Request(context.Context, MoveRequest) (Move, error)
+	Accept(context.Context, Message) error
 }
 
 type Player struct {

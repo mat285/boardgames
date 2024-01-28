@@ -12,6 +12,13 @@ var (
 
 type Game struct {
 	v1alpha1.Serializer
+	Config game.Config
+}
+
+func New(config game.Config) *Game {
+	return &Game{
+		Config: config,
+	}
 }
 
 func (g *Game) Initialize(pids []uuid.UUID) (v1alpha1.StateData, error) {
@@ -19,7 +26,7 @@ func (g *Game) Initialize(pids []uuid.UUID) (v1alpha1.StateData, error) {
 	for i := range pids {
 		players[i] = game.NewPlayer(pids[i])
 	}
-	return game.NewState(players), nil
+	return game.NewState(players, g.Config), nil
 }
 
 func (g *Game) Load(state v1alpha1.StateData) error {

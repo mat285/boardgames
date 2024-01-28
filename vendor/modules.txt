@@ -1,7 +1,28 @@
 # github.com/blend/go-sdk v1.20220411.3
 ## explicit; go 1.17
+github.com/blend/go-sdk/ansi
+github.com/blend/go-sdk/async
+github.com/blend/go-sdk/bufferutil
+github.com/blend/go-sdk/configutil
+github.com/blend/go-sdk/env
 github.com/blend/go-sdk/ex
+github.com/blend/go-sdk/logger
+github.com/blend/go-sdk/mathutil
+github.com/blend/go-sdk/proxyprotocol
+github.com/blend/go-sdk/r2
+github.com/blend/go-sdk/ref
+github.com/blend/go-sdk/reflectutil
+github.com/blend/go-sdk/sanitize
+github.com/blend/go-sdk/semver
+github.com/blend/go-sdk/stringutil
+github.com/blend/go-sdk/template
+github.com/blend/go-sdk/timeutil
 github.com/blend/go-sdk/uuid
+github.com/blend/go-sdk/web
+github.com/blend/go-sdk/webutil
+# github.com/golang-jwt/jwt v3.2.2+incompatible
+## explicit
+github.com/golang-jwt/jwt
 # github.com/gorilla/websocket v1.5.1
 ## explicit; go 1.20
 github.com/gorilla/websocket
@@ -9,11 +30,6 @@ github.com/gorilla/websocket
 ## explicit; go 1.17
 golang.org/x/net/internal/socks
 golang.org/x/net/proxy
-# golang.org/x/sys v0.13.0
-## explicit; go 1.17
-golang.org/x/sys/plan9
-golang.org/x/sys/unix
-golang.org/x/sys/windows
-# golang.org/x/term v0.13.0
-## explicit; go 1.17
-golang.org/x/term
+# gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
+## explicit
+gopkg.in/yaml.v3

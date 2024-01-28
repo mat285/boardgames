@@ -37,6 +37,16 @@ func (gc GemCount) ToMap() GemMap {
 	}
 }
 
+func (gc GemCount) ToSlice() []Gem {
+	ret := make([]Gem, 0, gc.Total())
+	for k, v := range gc.ToMap() {
+		for i := 0; i < v; i++ {
+			ret = append(ret, k)
+		}
+	}
+	return ret
+}
+
 func (gm GemMap) ToCount() GemCount {
 	return GemCountFromMap(gm)
 }

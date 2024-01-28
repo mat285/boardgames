@@ -1,163 +1,120 @@
 package v1alpha1
 
-// import (
-// 	"context"
-// 	"fmt"
-// 	"sync"
+import (
+	"context"
+	"fmt"
 
-// 	"github.com/blend/go-sdk/uuid"
-// 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
-// 	"github.com/mat285/boardgames/pkg/persist"
-// )
+	"github.com/blend/go-sdk/uuid"
+	"github.com/mat285/boardgames/pkg/game/v1alpha1"
+)
 
-// type Engine struct {
-// 	ID uuid.UUID
+type Engine struct {
+	State *v1alpha1.State
+	Game  v1alpha1.Game
+}
 
-// 	Connections *ConnectionManager
+func NewEngine(state *v1alpha1.State, game v1alpha1.Game) *Engine {
+	return &Engine{
+		State: state,
+		Game:  game,
+	}
+}
 
-// 	State *v1alpha1.State
-// 	Game  v1alpha1.Game
+func (e *Engine) Start(ctx context.Context) error {
+	data, err := e.Game.Initialize(e.PlayerIDs())
+	if err != nil {
+		return err
+	}
+	e.State.Data = data
 
-// 	Persist persist.Interface
+	return e.gameLoop(ctx)
+}
 
-// 	interrupt chan struct{}
+func (e *Engine) gameLoop(ctx context.Context) error {
 
-// 	runningLock sync.Mutex
-// 	running     bool
-// }
+	for {
+		select {
+		case <-ctx.Done():
+		default:
+		}
 
-// func New(game v1alpha1.Game, players []v1alpha1.Player) *Engine {
-// 	e := &Engine{
-// 		State: &v1alpha1.State{
-// 			Players: players,
-// 		},
-// 		Game:      game,
-// 		interrupt: make(chan struct{}),
-// 	}
-// 	e.Connections = NewConnectionManager(e)
-// 	return e
-// }
+		if e.State.Data.IsDone() {
+			// todo winners
+			fmt.Println(e.State.Data.Winners())
+			return nil
+		}
 
-// func (e *Engine) Players() []v1alpha1.Player {
-// 	if e.State == nil {
-// 		return nil
-// 	}
-// 	return e.State.Players
-// }
+		pid, err := e.State.Data.CurrentPlayer()
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 
-// func (e *Engine) PlayerIDs() []uuid.UUID {
-// 	ids := make([]uuid.UUID, len(e.State.Players))
-// 	for i := range e.State.Players {
-// 		ids[i] = e.State.Players[i].ID
-// 	}
-// 	return ids
-// }
+		player := e.State.GetPlayer(pid)
+		if player == nil {
+			fmt.Println("No player for id", pid)
+			continue
+		}
 
-// func (e *Engine) Initialize() error {
-// 	if e.State != nil {
-// 		return fmt.Errorf("Game already initialized")
-// 	}
+		move, err := player.Connection.Request(ctx, v1alpha1.MoveRequest{State: e.State.Data})
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 
-// 	data, err := e.Game.Initialize(e.PlayerIDs())
-// 	if err != nil {
-// 		return err
-// 	}
+		response, err := move.Apply(e.State.Data)
+		if err != nil {
+			fmt.Println(err)
+			player.Connection.Accept(ctx, v1alpha1.MessageFromError(err))
+			continue
+		}
 
-// 	e.State = &v1alpha1.State{
-// 		Version: 1,
-// 		Data:    data,
-// 	}
-// 	return nil
-// }
+		if !response.Valid {
+			fmt.Println("Invalid Move")
+			continue
+		}
 
-// func (e *Engine) Start(ctx context.Context) error {
-// 	go e.Connections.Start(ctx)
-// 	err := e.Connections.Ready(ctx)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	// all players connected lets play
-// 	for {
-// 		select {
-// 		case <-ctx.Done():
-// 			return ctx.Err()
-// 		case <-e.interrupt:
-// 			return e.pause(ctx)
-// 		default:
-// 			// fall through
-// 		}
+		msg, err := v1alpha1.MessagePlayerMove(player.ID, move)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		err = e.Broadcast(ctx, msg, player.ID)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
 
-// 		err = e.step(ctx)
-// 		if err != nil {
-// 			// TODO retry
-// 		}
-// 	}
-// }
+		e.State.Data = response.State
+	}
+}
 
-// func (e *Engine) step(ctx context.Context) error {
-// 	gameState := e.State.Data
-// 	p := gameState.CurrentPlayer()
+func (e *Engine) Broadcast(ctx context.Context, message v1alpha1.Message, exclude ...uuid.UUID) error {
+	for _, player := range e.State.Players {
+		if excludeUUID(player.ID, exclude...) {
+			continue
+		}
+		err := player.Connection.Accept(ctx, message)
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+	return nil
+}
 
-// 	move, err := e.Connections.RequestMove(ctx, &p, v1alpha1.MoveRequest{gameState})
-// 	if err != nil {
-// 		return err
-// 	}
+func (e *Engine) PlayerIDs() []uuid.UUID {
+	ids := make([]uuid.UUID, len(e.State.Players))
+	for i := range e.State.Players {
+		ids[i] = e.State.Players[i].ID
+	}
+	return ids
+}
 
-// 	if !move.IsValid(gameState) {
-// 		e.State.Attempts++
-// 		if e.State.Attempts > 5 {
-// 			// kick player, end game just spamming
-// 		}
-// 		return nil // retry
-// 	}
-
-// 	newState, err := move.Apply(gameState)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	e.persist(ctx, newState)
-// 	if err != nil {
-// 		// retry with new reconciled state if need be
-// 		// broadcast current state
-// 	}
-// 	return nil
-// }
-
-// func (e *Engine) persist(ctx context.Context, data v1alpha1.StateData) error {
-// 	state := v1alpha1.State{
-// 		Players:  e.State.Players,
-// 		Version:  e.State.Version + 1,
-// 		Attempts: 0,
-// 		Data:     data,
-// 	}
-// 	// send upstream and get back current version
-
-// 	obj := persist.Object{
-// 		Meta: persist.Meta{
-// 			ID:            e.ID,
-// 			APIVersion:    "",
-// 			ObjectVersion: state.Version,
-// 		},
-// 		Data: state,
-// 	}
-
-// 	curr, err := e.Persist.CheckAndSet(ctx, obj)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	currState, ok := curr.Data.(*v1alpha1.State)
-// 	if !ok {
-// 		return fmt.Errorf("Bad game state")
-// 	}
-// 	e.State = currState
-// 	e.State.Version = curr.ObjectVersion
-// 	return nil
-// }
-
-// func (e *Engine) pause(ctx context.Context) error {
-// 	// save game state
-// 	// alert all players to rejoin
-// 	return nil
-// }
+func excludeUUID(id uuid.UUID, exclude ...uuid.UUID) bool {
+	for _, e := range exclude {
+		if id.Equal(e) {
+			return true
+		}
+	}
+	return false
+}

@@ -21,59 +21,61 @@ type State struct {
 	Board items.Board
 }
 
-func NewState(players []Player) State {
+func NewState(players []Player, config Config) State {
 	return State{
 		Players:      players,
 		CurrentIndex: 0,
-		Config: Config{
-			VictoryPoints: 15,
-		},
-		Board: items.NewBoard(),
+		Config:       config,
+		Board:        items.NewBoard(),
 	}
 }
 
-func (s State) apply(move Move) (state State, valid bool) {
+func (s State) apply(move Move) (state State, valid bool, err error) {
 	if move.Collect != nil {
-		state, valid = s.applyCollect(*move.Collect)
+		state, valid, err = s.applyCollect(*move.Collect)
 	} else if move.Purchase != nil {
-		state, valid = s.applyPurchase(*move.Purchase)
+		state, valid, err = s.applyPurchase(*move.Purchase)
 	} else if move.Reserve != nil {
-		state, valid = s.applyReserve(*move.Reserve)
+		state, valid, err = s.applyReserve(*move.Reserve)
 	} else {
-		return s, false
+		return s, false, fmt.Errorf("No move")
 	}
 	if valid {
-		state.CurrentIndex = state.Next()
+		state.CurrentIndex = s.Next()
 	}
 	return
 }
 
-func (s State) applyCollect(move CollectMove) (State, bool) {
+func (s State) applyCollect(move CollectMove) (State, bool, error) {
+	err := move.Validate(s.Board.Gems)
+	if err != nil {
+		return s, false, err
+	}
 	hand := s.Players[s.CurrentIndex].Hand
 	gems := hand.Gems.Add(move.Take).ToMap()
 
 	if gems.Total() > 10 {
 		gems.Sub(move.Return.ToMap())
 		if !gems.NonNegative() || gems.Total() > 10 {
-			return s, false
+			return s, false, err
 		}
 	}
 	hand.Gems = gems.ToCount()
 	s.Players[s.CurrentIndex].Hand = hand
-	return s, true
+	return s, true, err
 }
 
-func (s State) applyPurchase(move CardMove) (State, bool) {
+func (s State) applyPurchase(move CardMove) (State, bool, error) {
 	hand := s.Players[s.CurrentIndex].Hand
 
 	if !hand.CanPurchase(move.Card) {
-		return s, false
+		return s, false, nil
 	}
 	reserved := items.ContainsCard(hand.Reserved, move.Card)
 	onBoard := s.Board.IsCardOnBoard(move.Card)
 
 	if !reserved && !onBoard {
-		return s, false
+		return s, false, nil
 	}
 
 	hand = hand.Purchase(move.Card)
@@ -84,21 +86,21 @@ func (s State) applyPurchase(move CardMove) (State, bool) {
 		s.Board = s.Board.RemoveCard(move.Card)
 	}
 	s.Players[s.CurrentIndex].Hand = hand
-	return s, true
+	return s, true, nil
 }
 
-func (s State) applyReserve(move CardMove) (State, bool) {
+func (s State) applyReserve(move CardMove) (State, bool, error) {
 	hand := s.Players[s.CurrentIndex].Hand
 	if !hand.CanReserve() {
-		return s, false
+		return s, false, nil
 	}
 	if !s.Board.IsCardOnBoard(move.Card) {
-		return s, false
+		return s, false, nil
 	}
 	s.Board = s.Board.RemoveCard(move.Card)
 	hand = hand.Reserve(move.Card)
 	s.Players[s.CurrentIndex].Hand = hand
-	return s, true
+	return s, true, nil
 }
 
 func (s State) CurrentPlayer() (uuid.UUID, error) {

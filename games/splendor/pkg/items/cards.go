@@ -2,9 +2,9 @@ package items
 
 func Cards() []Card {
 	cards := append(
-		LevelOneCards(),
-		append(LevelTwoCards(),
-			LevelThreeCards()...,
+		levelOneCards(),
+		append(levelTwoCards(),
+			levelThreeCards()...,
 		)...,
 	)
 	for i := range cards {
@@ -14,6 +14,29 @@ func Cards() []Card {
 }
 
 func LevelOneCards() []Card {
+	return filterLevel(Cards(), 0)
+}
+
+func LevelTwoCards() []Card {
+	return filterLevel(Cards(), 1)
+}
+
+func LevelThreeCards() []Card {
+	return filterLevel(Cards(), 2)
+}
+
+func filterLevel(cards []Card, level int) []Card {
+	filtered := make([]Card, 0)
+	for _, card := range cards {
+		if card.Level != level {
+			continue
+		}
+		filtered = append(filtered, card)
+	}
+	return filtered
+}
+
+func levelOneCards() []Card {
 	return []Card{
 		// ** Level 1**
 		// Black
@@ -468,7 +491,7 @@ func LevelOneCards() []Card {
 	}
 }
 
-func LevelTwoCards() []Card {
+func levelTwoCards() []Card {
 	return []Card{
 		// **Level 2**
 		// Black
@@ -831,7 +854,7 @@ func LevelTwoCards() []Card {
 	}
 }
 
-func LevelThreeCards() []Card {
+func levelThreeCards() []Card {
 	return []Card{
 		// **Level 3**
 		// Black

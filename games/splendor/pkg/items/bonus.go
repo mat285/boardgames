@@ -1,5 +1,7 @@
 package items
 
+import "math/rand"
+
 type Bonus struct {
 	Value int
 	Count GemCount
@@ -20,6 +22,33 @@ func CloneBonuses(bs []Bonus) []Bonus {
 		ret[i] = bs[i]
 	}
 	return ret
+}
+
+func RandomBonuses(n int) []Bonus {
+	all := Bonuses()
+	if n <= 0 {
+		return []Bonus{}
+	}
+	if n >= len(all) {
+		return all
+	}
+	ret := make([]Bonus, n)
+	for i := 0; i < n; i++ {
+		ret[i], all = RandomBonus(all)
+	}
+	return ret
+}
+
+func RandomBonus(bs []Bonus) (Bonus, []Bonus) {
+	if len(bs) == 0 {
+		return Bonus{}, []Bonus{}
+	}
+	i := rand.Intn(len(bs))
+	bonus := bs[i]
+	last := len(bs) - 1
+
+	bs[i] = bs[last]
+	return bonus, bs[:last]
 }
 
 func Bonuses() []Bonus {

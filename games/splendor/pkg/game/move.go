@@ -46,12 +46,12 @@ func (m *Move) Apply(raw v1alpha1.StateData) (*v1alpha1.MoveResult, error) {
 		}, nil
 	}
 	res := &v1alpha1.MoveResult{}
-	res.State, res.Valid = m.apply(state)
-	return res, nil
+	res.State, res.Valid, err = state.apply(*m)
+	return res, err
 
 }
 
-func (m *Move) apply(state State) (State, bool) {
+func (m *Move) apply(state State) (State, bool, error) {
 	if m.Collect != nil {
 		return state.applyCollect(*m.Collect)
 	} else if m.Purchase != nil {
@@ -59,7 +59,7 @@ func (m *Move) apply(state State) (State, bool) {
 	} else if m.Reserve != nil {
 		return state.applyReserve(*m.Reserve)
 	} else {
-		return state, false
+		return state, false, fmt.Errorf("No move")
 	}
 }
 
@@ -95,4 +95,32 @@ func MoveSliceToMoveSlice(moves []*Move) []v1alpha1.Move {
 		ret[i] = moves[i]
 	}
 	return ret
+}
+
+func (c CollectMove) Validate(gems items.GemCount) error {
+	take := c.Take.ToMap()
+	total := 0
+	double := false
+
+	for k, v := range take {
+		if v < 0 {
+			return fmt.Errorf("Cannot take negative gems")
+		}
+		if v == 2 {
+			double = true
+			if gems.Get(k) < 4 {
+				return fmt.Errorf("Cannot take 2 when fewer than 4 remain")
+			}
+		}
+		total += v
+	}
+
+	if total > 3 {
+		return fmt.Errorf("Can take at most 3 gems")
+	}
+
+	if double && total != 2 {
+		return fmt.Errorf("Can only take one of each gem unless only taking 2 total")
+	}
+	return nil
 }
