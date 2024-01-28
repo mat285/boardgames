@@ -1,9 +1,15 @@
 package splendor
 
 import (
+	"fmt"
+
 	"github.com/blend/go-sdk/uuid"
 	"github.com/mat285/boardgames/games/splendor/pkg/game"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
+)
+
+const (
+	Name = "splendor"
 )
 
 var (
@@ -11,14 +17,32 @@ var (
 )
 
 type Game struct {
-	v1alpha1.Serializer
 	Config game.Config
 }
 
-func New(config game.Config) *Game {
+func NewGameWithConfig(config game.Config) *Game {
 	return &Game{
 		Config: config,
 	}
+}
+
+func New(config interface{}) (v1alpha1.Game, error) {
+	if config == nil {
+		return NewGameWithConfig(game.StandardConfig()), nil
+	}
+	typed, ok := config.(game.Config)
+	if !ok {
+		typed = game.StandardConfig()
+	}
+	return NewGameWithConfig(typed), nil
+}
+
+func NewConfig() interface{} {
+	return game.Config{}
+}
+
+func (g Game) Name() string {
+	return Name
 }
 
 func (g *Game) Initialize(pids []uuid.UUID) (v1alpha1.StateData, error) {
@@ -30,7 +54,10 @@ func (g *Game) Initialize(pids []uuid.UUID) (v1alpha1.StateData, error) {
 }
 
 func (g *Game) Load(state v1alpha1.StateData) error {
+	typed, ok := state.(game.State)
+	if !ok {
+		return fmt.Errorf("Invalid State for Game")
+	}
+	g.Config = typed.Config
 	return nil
 }
-
-// func (g *Game) SerializeMove(m v1alpha1.Move) ([]byte,error)

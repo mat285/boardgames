@@ -32,6 +32,6 @@ func DefaultFilter(nodes []*Node) []*Node {
 }
 
 func DefaultLimiter(size, depth int) (stop bool) {
-	stop = size > (1 << 20)
+	stop = size > (1 << 8)
 	return
 }

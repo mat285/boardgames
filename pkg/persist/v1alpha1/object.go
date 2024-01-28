@@ -1,4 +1,4 @@
-package persist
+package v1alpha1
 
 type Object struct {
 	Meta

@@ -30,6 +30,17 @@ func MessagePlayerMove(id uuid.UUID, move Move) (Message, error) {
 	}, err
 }
 
+func MessageGameOver(winners []uuid.UUID) (Message, error) {
+	data := map[string]interface{}{
+		"winners": winners,
+	}
+	bytes, err := json.Marshal(data)
+	return Message{
+		Type: MessageTypePlayerMove,
+		Data: bytes,
+	}, err
+}
+
 func (m Message) String() string {
 	return string(m.Data)
 }
@@ -37,7 +48,10 @@ func (m Message) String() string {
 type MessageType int
 
 const (
-	MessageTypeUnknown    MessageType = 0
-	MessageTypeError      MessageType = 1
-	MessageTypePlayerMove MessageType = 2
+	MessageTypeUnknown     MessageType = 0
+	MessageTypeError       MessageType = 1
+	MessageTypePlayerMove  MessageType = 2
+	MessageTypeStateUpdate MessageType = 3
+	MessageTypeGameOver    MessageType = 4
+	MessageTypeGameStopped MessageType = 5
 )

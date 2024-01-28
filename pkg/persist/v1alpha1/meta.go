@@ -1,4 +1,4 @@
-package persist
+package v1alpha1
 
 import "github.com/blend/go-sdk/uuid"
 

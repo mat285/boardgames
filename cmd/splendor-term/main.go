@@ -24,7 +24,7 @@ func getEngine() *engine.Engine {
 }
 
 func getGame() v1alpha1.Game {
-	return splendor.New(game.Config{VictoryPoints: 7})
+	return splendor.NewGameWithConfig(game.Config{VictoryPoints: 7})
 }
 
 func getState() *v1alpha1.State {
