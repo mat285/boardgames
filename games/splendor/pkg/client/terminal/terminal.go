@@ -24,6 +24,9 @@ var _ engine.Player = new(TerminalPlayer)
 
 type TerminalPlayer struct {
 	engine.ConnectedPlayer
+
+	Connection *engine.Connection
+
 	serializer.Get
 
 	State        game.State
@@ -37,13 +40,15 @@ type TerminalPlayer struct {
 	logLock  sync.Mutex
 }
 
-func NewTerminalPlayer(g v1alpha1.Game, connection connection.Interface) *TerminalPlayer {
+func NewTerminalPlayer(g v1alpha1.Game, server connection.Server) *TerminalPlayer {
 	tp := &TerminalPlayer{
 		NeedMove:    false,
 		MoveChan:    make(chan v1alpha1.Move),
 		LogMessages: make(chan string, 100),
 	}
-	tp.ConnectedPlayer = engine.NewConnectedPlayer(uuid.V4(), "user", g, connection)
+	tp.ConnectedPlayer = engine.NewConnectedPlayer(uuid.V4(), "user", g, server)
+	conn, _ := server.Connect(context.Background())
+	tp.Connection = engine.NewConnection(g, conn)
 	return tp
 }
 

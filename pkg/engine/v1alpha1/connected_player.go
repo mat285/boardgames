@@ -1,8 +1,6 @@
 package v1alpha1
 
 import (
-	"context"
-
 	"github.com/blend/go-sdk/uuid"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
@@ -10,7 +8,6 @@ import (
 
 type Player interface {
 	game.Player
-	Connect(context.Context) error
 }
 
 type ConnectedPlayer struct {
@@ -18,10 +15,10 @@ type ConnectedPlayer struct {
 	*Connection
 }
 
-func NewConnectedPlayer(id uuid.UUID, username string, s game.Game, conn connection.Interface) ConnectedPlayer {
+func NewConnectedPlayer(id uuid.UUID, username string, s game.Game, server connection.Server) ConnectedPlayer {
 	return ConnectedPlayer{
 		BasePlayer: game.NewBasePlayer(id, username),
-		Connection: NewConnection(s, conn),
+		Connection: NewConnection(s, server.Serve()),
 	}
 }
 

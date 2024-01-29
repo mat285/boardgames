@@ -23,6 +23,8 @@ type Engine struct {
 
 	Persist persist.Interface
 
+	Server *Connection
+
 	interrupt chan Event
 	stop      chan struct{}
 }
@@ -57,12 +59,12 @@ func (e *Engine) Join(ctx context.Context, player Player) error {
 }
 
 func (e *Engine) ConnectPlayers(ctx context.Context) error {
-	for _, player := range e.Players {
-		err := player.Connect(ctx)
-		if err != nil {
-			return err
-		}
-	}
+	// for _, player := range e.Players {
+	// 	err := player.Connect(ctx)
+	// 	if err != nil {
+	// 		return err
+	// 	}
+	// }
 	return nil
 }
 

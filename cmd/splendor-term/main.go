@@ -28,7 +28,7 @@ func getGame() v1alpha1.Game {
 }
 
 func getPlayers(g v1alpha1.Game) []engine.Player {
-	p := terminal.NewTerminalPlayer(g, connection.NewLocalConnection())
+	p := terminal.NewTerminalPlayer(g, connection.NewLocalConnecter())
 	go p.Run(context.Background())
 	return []engine.Player{
 		p,

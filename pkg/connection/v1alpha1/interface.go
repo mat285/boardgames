@@ -3,7 +3,6 @@ package v1alpha1
 import "context"
 
 type Interface interface {
-	Connect(ctx context.Context) error
 	Sender
 	Listener
 }
@@ -14,4 +13,9 @@ type Sender interface {
 
 type Listener interface {
 	Listen(context.Context, PacketHandler) error
+}
+
+type Server interface {
+	Connect(context.Context) (Interface, error)
+	Serve() Interface
 }

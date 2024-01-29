@@ -7,26 +7,46 @@ import (
 )
 
 var (
-	_ Interface = new(LocalConnection)
+	_ Interface = new(Local)
+	_ Server    = new(LocalConnector)
 )
 
-type LocalConnection struct {
-	Interface
+type LocalConnector struct {
+	Server *Local
+	Client *Local
+}
+
+type Local struct {
+	Partner *Local
 
 	handlerLock sync.Mutex
 	handler     PacketHandler
 	stop        chan struct{}
 }
 
-func NewLocalConnection() *LocalConnection {
-	return &LocalConnection{}
+func NewLocalConnecter() *LocalConnector {
+	lc := &LocalConnector{
+		Server: new(Local),
+		Client: new(Local),
+	}
+	lc.Server.Partner = lc.Client
+	lc.Client.Partner = lc.Server
+	return lc
 }
 
-func (lc *LocalConnection) Send(ctx context.Context, packet Packet) error {
-	return lc.passthrough(ctx, packet)
+func (lc *LocalConnector) Connect(ctx context.Context) (Interface, error) {
+	return lc.Client, nil
 }
 
-func (lc *LocalConnection) Listen(ctx context.Context, handle PacketHandler) error {
+func (lc *LocalConnector) Serve() Interface {
+	return lc.Server
+}
+
+func (lc *Local) Send(ctx context.Context, packet Packet) error {
+	return lc.Partner.Receive(ctx, packet)
+}
+
+func (lc *Local) Listen(ctx context.Context, handle PacketHandler) error {
 	lc.handlerLock.Lock()
 	if lc.handler != nil {
 		lc.handlerLock.Unlock()
@@ -46,7 +66,7 @@ func (lc *LocalConnection) Listen(ctx context.Context, handle PacketHandler) err
 	}
 }
 
-func (lc *LocalConnection) Stop() {
+func (lc *Local) Stop() {
 	lc.handlerLock.Lock()
 	defer lc.handlerLock.Unlock()
 	if lc.stop != nil {
@@ -56,7 +76,7 @@ func (lc *LocalConnection) Stop() {
 	lc.handler = nil
 }
 
-func (lc *LocalConnection) passthrough(ctx context.Context, packet Packet) error {
+func (lc *Local) Receive(ctx context.Context, packet Packet) error {
 	lc.handlerLock.Lock()
 	defer lc.handlerLock.Unlock()
 	if lc.handler == nil {
