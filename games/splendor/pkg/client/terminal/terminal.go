@@ -11,26 +11,46 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/blend/go-sdk/uuid"
 	"github.com/mat285/boardgames/games/splendor/pkg/game"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
+	"github.com/mat285/boardgames/games/splendor/serializer"
+	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
+	engine "github.com/mat285/boardgames/pkg/engine/v1alpha1"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
 )
 
+var _ engine.Player = new(TerminalPlayer)
+
 type TerminalPlayer struct {
+	engine.ConnectedPlayer
+	serializer.Get
+
 	State        game.State
 	NeedMove     bool
 	NeedMoveLock sync.Mutex
 	MoveChan     chan v1alpha1.Move
 
 	LogMessages chan string
+
+	logPause bool
+	logLock  sync.Mutex
 }
 
-func NewTerminalPlayer() *TerminalPlayer {
-	return &TerminalPlayer{
+func NewTerminalPlayer(g v1alpha1.Game, connection connection.Interface) *TerminalPlayer {
+	tp := &TerminalPlayer{
 		NeedMove:    false,
 		MoveChan:    make(chan v1alpha1.Move),
-		LogMessages: make(chan string, 5),
+		LogMessages: make(chan string, 100),
 	}
+	tp.ConnectedPlayer = engine.NewConnectedPlayer(uuid.V4(), "user", g, connection)
+	return tp
+}
+
+func (p *TerminalPlayer) Connect(ctx context.Context) error {
+	go p.ConnectedPlayer.Receive(ctx, p.Handle)
+	go p.Run(ctx)
+	return nil
 }
 
 func (p *TerminalPlayer) Run(ctx context.Context) error {
@@ -41,7 +61,7 @@ func (p *TerminalPlayer) Run(ctx context.Context) error {
 			return ctx.Err()
 		default:
 		}
-		entry := p.Prompt(">")
+		entry := p.Prompt("\n>")
 		parts := strings.Split(entry, " ")
 		cmd := parts[0]
 		switch cmd {
@@ -179,19 +199,31 @@ func (p *TerminalPlayer) Run(ctx context.Context) error {
 			p.MoveChan <- moves[num]
 
 		default:
-			p.Println("Commands: board hand gems cards moves exit")
+			p.Println("Commands: board hand gems cards moves exit\n")
 		}
 	}
 
 }
 
-func (p *TerminalPlayer) Accept(ctx context.Context, message v1alpha1.Message) error {
+func (p *TerminalPlayer) Handle(ctx context.Context, message v1alpha1.Message) (*v1alpha1.Message, error) {
+	switch message.Type {
+	case v1alpha1.MessageTypeRequestMove:
+		so, err := message.DeserializeToObject()
+		if err != nil {
+			return nil, err
+		}
+		state, err := p.Serializer().DeserializeState(so)
+		if err != nil {
+			return nil, err
+		}
+		return p.Request(ctx, state)
+	}
 	p.Println(fmt.Sprintf("\nMessage from game server:%s\n", message))
-	return nil
+	return nil, nil
 }
 
-func (p *TerminalPlayer) Request(ctx context.Context, req v1alpha1.MoveRequest) (v1alpha1.Move, error) {
-	typed, ok := req.State.(game.State)
+func (p *TerminalPlayer) Request(ctx context.Context, state v1alpha1.StateData) (*v1alpha1.Message, error) {
+	typed, ok := state.(game.State)
 	if !ok {
 		return nil, fmt.Errorf("Wrong game")
 	}
@@ -206,11 +238,15 @@ func (p *TerminalPlayer) Request(ctx context.Context, req v1alpha1.MoveRequest) 
 	p.NeedMoveLock.Lock()
 	p.NeedMove = true
 	p.NeedMoveLock.Unlock()
-	return move, nil
+	data, err := p.Serializer().SerializeMove(move)
+	if err != nil {
+		return nil, err
+	}
+	return v1alpha1.NewMessage(v1alpha1.MessageTypePlayerMove, data)
 }
 
 func (p *TerminalPlayer) PrintMove(i int, move v1alpha1.Move) error {
-	data, err := move.Serialize()
+	data, err := json.Marshal(move)
 	if err != nil {
 		return err
 	}
@@ -233,13 +269,41 @@ func (p *TerminalPlayer) Printf(format string, args ...interface{}) {
 	p.LogMessages <- fmt.Sprintf(format, args...)
 }
 
+func (p *TerminalPlayer) drain() {
+	for len(p.LogMessages) > 0 {
+		msg := <-p.LogMessages
+		fmt.Printf(msg)
+	}
+}
+
+func (p *TerminalPlayer) pauseLogs() {
+	if p.logPause {
+		return
+	}
+	p.logLock.Lock()
+	p.logPause = true
+}
+
+func (p *TerminalPlayer) resumeLogs() {
+	if !p.logPause {
+		return
+	}
+	p.logPause = false
+	p.logLock.Unlock()
+}
+
 func (p *TerminalPlayer) writeLogs(ctx context.Context) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg := <-p.LogMessages:
-			fmt.Printf(msg)
+			if p.logPause {
+				p.logLock.Lock()
+				fmt.Printf(msg)
+			} else {
+				fmt.Printf(msg)
+			}
 		}
 	}
 }
@@ -299,7 +363,10 @@ func (p *TerminalPlayer) Prompt(prompt string) string {
 
 // PromptFrom gives a prompt and reads input until newlines from a given set of streams.
 func (p *TerminalPlayer) PromptFrom(stdout io.Writer, stdin io.Reader, prompt string) string {
-	p.Printf(prompt)
+	// p.pauseLogs()
+	// p.drain()
+	// defer p.resumeLogs()
+	fmt.Printf(prompt)
 
 	scanner := bufio.NewScanner(stdin)
 	var output string

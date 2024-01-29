@@ -3,8 +3,18 @@ package v1alpha1
 import "encoding/json"
 
 type Packet struct {
-	Header  Header
+	Header
 	Payload []byte
+}
+
+func NewPacket(opts ...PacketOption) Packet {
+	p := Packet{
+		Header: NewHeader(),
+	}
+	for _, opt := range opts {
+		opt(&p)
+	}
+	return p
 }
 
 func DeserializePacket(raw []byte) (*Packet, error) {

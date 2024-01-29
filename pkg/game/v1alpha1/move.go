@@ -1,7 +1,7 @@
 package v1alpha1
 
 type Move interface {
-	Serializable
+	Meta() Meta
 	Apply(StateData) (*MoveResult, error)
 }
 

@@ -7,7 +7,7 @@ import (
 	"sync"
 
 	"github.com/blend/go-sdk/uuid"
-	"github.com/mat285/boardgames/pkg/game/v1alpha1"
+	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
 	persist "github.com/mat285/boardgames/pkg/persist/v1alpha1"
 )
 
@@ -17,8 +17,9 @@ type Engine struct {
 
 	started bool
 
-	State *v1alpha1.State
-	Game  v1alpha1.Game
+	Players []Player
+	State   *game.State
+	Game    game.Game
 
 	Persist persist.Interface
 
@@ -26,29 +27,42 @@ type Engine struct {
 	stop      chan struct{}
 }
 
-func NewEngine(state *v1alpha1.State, game v1alpha1.Game) *Engine {
-	return &Engine{
+func NewEngine(players []Player, g game.Game) *Engine {
+	e := &Engine{
 		ID:        uuid.V4(),
-		State:     state,
-		Game:      game,
+		Players:   players,
+		Game:      g,
 		interrupt: make(chan Event),
 		stop:      make(chan struct{}),
 	}
+	e.State = game.NewState(e.GamePlayers())
+	return e
 }
 
-func (e *Engine) Join(player v1alpha1.Player) error {
+func (e *Engine) Join(ctx context.Context, player Player) error {
 	if e.started {
 		return fmt.Errorf("Game Already Started")
 	}
 	e.Lock()
 	defer e.Unlock()
-	for i, p := range e.State.Players {
-		if p.ID.Equal(player.ID) {
-			e.State.Players[i] = player
+	for i, p := range e.Players {
+		if p.GetID().Equal(player.GetID()) {
+			e.Players[i] = player
 			return nil
 		}
 	}
+	e.Players = append(e.Players, player)
 	e.State.Players = append(e.State.Players, player)
+	return nil
+}
+
+func (e *Engine) ConnectPlayers(ctx context.Context) error {
+	for _, player := range e.Players {
+		err := player.Connect(ctx)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -61,6 +75,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	}
 	e.State.Data = data
 	e.started = true
+	err = e.ConnectPlayers(ctx)
 	e.Unlock()
 	return e.gameLoop(ctx)
 }
@@ -85,11 +100,11 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 		}
 
 		if e.State.Data.IsDone() {
-			msg, err := v1alpha1.MessageGameOver(e.State.Data.Winners())
+			msg, err := game.MessageGameOver(e.State.Data.Winners())
 			if err != nil {
-				fmt.Println(err)
+				return err
 			}
-			return e.Broadcast(ctx, msg)
+			return e.Broadcast(ctx, *msg)
 		}
 
 		pid, err := e.State.Data.CurrentPlayer()
@@ -104,7 +119,18 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 			continue
 		}
 
-		move, err := player.Connection.Request(ctx, v1alpha1.MoveRequest{State: e.State.Data})
+		msg, err := game.MessageRequestMove(e.State.Data, e.Game.Serializer())
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+
+		resp, err := player.GetConnection().Request(ctx, *msg)
+		if err != nil {
+			fmt.Println(err)
+			continue
+		}
+		move, err := game.MoveFromMessage(*resp, e.Game.Serializer())
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -113,7 +139,7 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 		response, err := move.Apply(e.State.Data)
 		if err != nil {
 			fmt.Println(err)
-			player.Connection.Accept(ctx, v1alpha1.MessageFromError(err))
+			player.GetConnection().Send(ctx, game.MessageFromError(err))
 			continue
 		}
 
@@ -122,12 +148,12 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 			continue
 		}
 
-		msg, err := v1alpha1.MessagePlayerMove(player.ID, move)
+		msg, err = game.MessagePlayerMoveInfo(player.GetID(), move)
 		if err != nil {
 			fmt.Println(err)
 			continue
 		}
-		err = e.Broadcast(ctx, msg, player.ID)
+		err = e.Broadcast(ctx, *msg, player.GetID())
 		if err != nil {
 			fmt.Println(err)
 			continue
@@ -160,8 +186,8 @@ func (e *Engine) Stop(ctx context.Context, optional ...interface{}) error {
 	if len(optional) > 0 && optional[0] != nil {
 		body, _ = json.Marshal(optional[0])
 	}
-	msg := v1alpha1.Message{
-		Type: v1alpha1.MessageTypeGameStopped,
+	msg := game.Message{
+		Type: game.MessageTypeGameStopped,
 		Data: body,
 	}
 	e.Broadcast(ctx, msg)
@@ -184,12 +210,12 @@ func (e *Engine) Save(ctx context.Context) error {
 	return err
 }
 
-func (e *Engine) Broadcast(ctx context.Context, message v1alpha1.Message, exclude ...uuid.UUID) error {
+func (e *Engine) Broadcast(ctx context.Context, message game.Message, exclude ...uuid.UUID) error {
 	for _, player := range e.State.Players {
-		if excludeUUID(player.ID, exclude...) {
+		if excludeUUID(player.GetID(), exclude...) {
 			continue
 		}
-		err := player.Connection.Accept(ctx, message)
+		err := player.GetConnection().Send(ctx, message)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -199,8 +225,16 @@ func (e *Engine) Broadcast(ctx context.Context, message v1alpha1.Message, exclud
 
 func (e *Engine) PlayerIDs() []uuid.UUID {
 	ids := make([]uuid.UUID, len(e.State.Players))
-	for i := range e.State.Players {
-		ids[i] = e.State.Players[i].ID
+	for i := range e.Players {
+		ids[i] = e.Players[i].GetID()
 	}
 	return ids
+}
+
+func (e *Engine) GamePlayers() []game.Player {
+	players := make([]game.Player, len(e.Players))
+	for i := range e.Players {
+		players[i] = e.Players[i]
+	}
+	return players
 }

@@ -16,10 +16,10 @@ func NewState(players []Player) *State {
 	}
 }
 
-func (s *State) GetPlayer(id uuid.UUID) *Player {
+func (s *State) GetPlayer(id uuid.UUID) Player {
 	for i, p := range s.Players {
-		if p.ID.Equal(id) {
-			return &s.Players[i]
+		if p.GetID().Equal(id) {
+			return s.Players[i]
 		}
 	}
 	return nil

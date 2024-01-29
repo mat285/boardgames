@@ -13,5 +13,5 @@ type Sender interface {
 }
 
 type Listener interface {
-	Listen(context.Context, PacketHandler)
+	Listen(context.Context, PacketHandler) error
 }
