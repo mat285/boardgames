@@ -2,13 +2,15 @@ package v1alpha1
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"sync"
 
 	"github.com/blend/go-sdk/uuid"
-	"github.com/mat285/boardgames/pkg/game/v1alpha1"
+	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
+	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
+	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
 	persist "github.com/mat285/boardgames/pkg/persist/v1alpha1"
+	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
 type Engine struct {
@@ -17,43 +19,59 @@ type Engine struct {
 
 	started bool
 
-	State *v1alpha1.State
-	Game  v1alpha1.Game
+	Players map[string]*Player
+
+	request connection.Requester
+
+	MessageProvider messages.Provider
+
+	State *game.State
+	Game  game.Game
 
 	Persist persist.Interface
 
-	interrupt chan Event
-	stop      chan struct{}
+	stop chan struct{}
 }
 
-func NewEngine(state *v1alpha1.State, game v1alpha1.Game) *Engine {
-	return &Engine{
-		ID:        uuid.V4(),
-		State:     state,
-		Game:      game,
-		interrupt: make(chan Event),
-		stop:      make(chan struct{}),
+func NewEngine(g game.Game) *Engine {
+	e := &Engine{
+		ID:              uuid.V4(),
+		Players:         make(map[string]*Player),
+		MessageProvider: messages.NewProvider(g),
+		Game:            g,
+		stop:            make(chan struct{}),
 	}
+	e.request = connection.NewRequestManager(e.receive)
+	e.State = game.NewState(e.GamePlayers())
+	return e
 }
 
-func (e *Engine) Join(player v1alpha1.Player) error {
+func (e *Engine) Join(ctx context.Context, client connection.ClientInfo) error {
 	if e.started {
 		return fmt.Errorf("Game Already Started")
 	}
 	e.Lock()
 	defer e.Unlock()
-	for i, p := range e.State.Players {
-		if p.ID.Equal(player.ID) {
-			e.State.Players[i] = player
-			return nil
-		}
-	}
-	e.State.Players = append(e.State.Players, player)
+	player := NewPlayer(client.ID, client.Username, client.Sender)
+	e.Players[player.ID.ToFullString()] = player
+	return nil
+}
+
+func (e *Engine) Receive(ctx context.Context, packet wire.Packet) error {
+	return e.request.Receive(ctx, packet)
+}
+
+func (e *Engine) receive(ctx context.Context, packet wire.Packet) error {
+
 	return nil
 }
 
 func (e *Engine) Start(ctx context.Context) error {
 	e.Lock()
+	if e.started {
+		e.Unlock()
+		return fmt.Errorf("Game already started")
+	}
 	data, err := e.Game.Initialize(e.PlayerIDs())
 	if err != nil {
 		e.Unlock()
@@ -61,80 +79,85 @@ func (e *Engine) Start(ctx context.Context) error {
 	}
 	e.State.Data = data
 	e.started = true
+	e.stop = make(chan struct{})
 	e.Unlock()
 	return e.gameLoop(ctx)
 }
 
 func (e *Engine) gameLoop(ctx context.Context) error {
-	if e.stop == nil {
-		e.stop = make(chan struct{})
-	}
-
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-e.stop:
 			return nil
-		case inter := <-e.interrupt:
-			err := e.handleInterrupt(ctx, inter)
-			if err != nil {
-				return err
-			}
 		default:
 		}
 
-		if e.State.Data.IsDone() {
-			msg, err := v1alpha1.MessageGameOver(e.State.Data.Winners())
-			if err != nil {
-				fmt.Println(err)
-			}
-			return e.Broadcast(ctx, msg)
-		}
-
-		pid, err := e.State.Data.CurrentPlayer()
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		player := e.State.GetPlayer(pid)
-		if player == nil {
-			fmt.Println("No player for id", pid)
-			continue
-		}
-
-		move, err := player.Connection.Request(ctx, v1alpha1.MoveRequest{State: e.State.Data})
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		response, err := move.Apply(e.State.Data)
-		if err != nil {
-			fmt.Println(err)
-			player.Connection.Accept(ctx, v1alpha1.MessageFromError(err))
-			continue
-		}
-
-		if !response.Valid {
-			fmt.Println("Invalid Move")
-			continue
-		}
-
-		msg, err := v1alpha1.MessagePlayerMove(player.ID, move)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		err = e.Broadcast(ctx, msg, player.ID)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		e.State.Data = response.State
+		e.Lock()
+		err := e.gameTurnUnsafe(ctx)
+		e.Unlock()
+		fmt.Println(err)
 	}
+}
+
+func (e *Engine) gameTurnUnsafe(ctx context.Context) error {
+	if e.State.Data.IsDone() {
+		msg, err := e.MessageProvider.MessageGameOver(e.State.Data.Winners())
+		if err != nil {
+			return err
+		}
+		return e.Broadcast(ctx, msg)
+	}
+
+	pid, err := e.State.Data.CurrentPlayer()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	player := e.GetPlayer(pid)
+	if player == nil {
+		return fmt.Errorf("No player for id", pid)
+	}
+
+	msg, err := e.MessageProvider.MessageRequestMove(e.State.Data)
+	if err != nil {
+		return err
+	}
+
+	resp, err := e.request.Request(ctx, player, *msg)
+	if err != nil {
+		return err
+	}
+
+	move, err := e.MessageProvider.ExtractMove(*resp)
+	if err != nil {
+		return err
+	}
+
+	response, err := move.Apply(e.State.Data)
+	if err != nil {
+		player.Send(ctx, wire.ErrorPacket(err))
+		return err
+	}
+
+	if !response.Valid {
+		player.Send(ctx, wire.ErrorPacket(fmt.Errorf("Invalid Move")))
+		return fmt.Errorf("Invalid Move")
+	}
+
+	msg, err = e.MessageProvider.MessagePlayerMoveInfo(player.ID, move)
+	if err != nil {
+		return err
+	}
+	err = e.Broadcast(ctx, msg, player.ID)
+	if err != nil {
+		return err
+	}
+
+	e.State.Data = response.State
+	return nil
 }
 
 func (e *Engine) handleInterrupt(ctx context.Context, event Event) error {
@@ -156,15 +179,16 @@ func (e *Engine) handleInterrupt(ctx context.Context, event Event) error {
 
 func (e *Engine) Stop(ctx context.Context, optional ...interface{}) error {
 	close(e.stop)
-	var body []byte
-	if len(optional) > 0 && optional[0] != nil {
-		body, _ = json.Marshal(optional[0])
-	}
-	msg := v1alpha1.Message{
-		Type: v1alpha1.MessageTypeGameStopped,
-		Data: body,
-	}
-	e.Broadcast(ctx, msg)
+	// var body []byte
+	// if len(optional) > 0 && optional[0] != nil {
+	// 	body, _ = json.Marshal(optional[0])
+	// }
+
+	// msg := game.Message{
+	// 	Type: game.MessageTypeGameStopped,
+	// 	Data: body,
+	// }
+	// e.Broadcast(ctx, msg)
 	return nil
 }
 
@@ -184,12 +208,15 @@ func (e *Engine) Save(ctx context.Context) error {
 	return err
 }
 
-func (e *Engine) Broadcast(ctx context.Context, message v1alpha1.Message, exclude ...uuid.UUID) error {
-	for _, player := range e.State.Players {
+func (e *Engine) Broadcast(ctx context.Context, packet *wire.Packet, exclude ...uuid.UUID) error {
+	if packet == nil {
+		return nil
+	}
+	for _, player := range e.Players {
 		if excludeUUID(player.ID, exclude...) {
 			continue
 		}
-		err := player.Connection.Accept(ctx, message)
+		err := player.Send(ctx, *packet)
 		if err != nil {
 			fmt.Println(err)
 		}
@@ -197,10 +224,31 @@ func (e *Engine) Broadcast(ctx context.Context, message v1alpha1.Message, exclud
 	return nil
 }
 
+func (e *Engine) GetPlayer(id uuid.UUID) *Player {
+	for i := range e.Players {
+		if e.Players[i].ID.Equal(id) {
+			return e.Players[i]
+		}
+	}
+	return nil
+}
+
 func (e *Engine) PlayerIDs() []uuid.UUID {
-	ids := make([]uuid.UUID, len(e.State.Players))
-	for i := range e.State.Players {
-		ids[i] = e.State.Players[i].ID
+	ids := make([]uuid.UUID, 0, len(e.State.Players))
+	for i := range e.Players {
+		id, err := uuid.Parse(i)
+		if err != nil {
+			continue
+		}
+		ids = append(ids, id)
 	}
 	return ids
+}
+
+func (e *Engine) GamePlayers() []game.Player {
+	players := make([]game.Player, 0, len(e.Players))
+	for i := range e.Players {
+		players = append(players, e.Players[i].Player)
+	}
+	return players
 }

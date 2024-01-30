@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/mat285/boardgames/games/splendor/meta"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
 )
@@ -11,6 +12,7 @@ import (
 var _ v1alpha1.Move = new(Move)
 
 type Move struct {
+	meta.Object
 	Pass     *PassMove
 	Collect  *CollectMove
 	Purchase *CardMove

@@ -11,29 +11,44 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mat285/boardgames/games/splendor/pkg/game"
+	"github.com/blend/go-sdk/uuid"
+	splendor "github.com/mat285/boardgames/games/splendor/pkg/game"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
-	"github.com/mat285/boardgames/pkg/game/v1alpha1"
+	client "github.com/mat285/boardgames/pkg/client/v1alpha1"
+	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
+	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
+	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
+	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
+var _ connection.Client = new(TerminalPlayer)
+
 type TerminalPlayer struct {
-	State        game.State
+	*client.Player
+
+	State        splendor.State
 	NeedMove     bool
 	NeedMoveLock sync.Mutex
-	MoveChan     chan v1alpha1.Move
+	MoveChan     chan game.Move
 
 	LogMessages chan string
+
+	logPause bool
+	logLock  sync.Mutex
 }
 
-func NewTerminalPlayer() *TerminalPlayer {
-	return &TerminalPlayer{
+func NewTerminalPlayer(username string, g game.Game, conn connection.Client) *TerminalPlayer {
+	tp := &TerminalPlayer{
+		Player:      client.NewPlayer(username, g, conn),
 		NeedMove:    false,
-		MoveChan:    make(chan v1alpha1.Move),
-		LogMessages: make(chan string, 5),
+		MoveChan:    make(chan game.Move),
+		LogMessages: make(chan string, 100),
 	}
+	return tp
 }
 
-func (p *TerminalPlayer) Run(ctx context.Context) error {
+func (p *TerminalPlayer) Start(ctx context.Context) error {
+	go p.Client.Listen(ctx, p.Handle)
 	go p.writeLogs(ctx)
 	for {
 		select {
@@ -41,7 +56,7 @@ func (p *TerminalPlayer) Run(ctx context.Context) error {
 			return ctx.Err()
 		default:
 		}
-		entry := p.Prompt(">")
+		entry := p.Prompt("\n>")
 		parts := strings.Split(entry, " ")
 		cmd := parts[0]
 		switch cmd {
@@ -121,8 +136,8 @@ func (p *TerminalPlayer) Run(ctx context.Context) error {
 				continue
 			}
 			card := items.Cards()[num]
-			cm := &game.CardMove{Card: card}
-			mv := &game.Move{}
+			cm := &splendor.CardMove{Card: card}
+			mv := &splendor.Move{}
 			if cmd == "reserve" {
 				mv.Reserve = cm
 			} else {
@@ -149,7 +164,7 @@ func (p *TerminalPlayer) Run(ctx context.Context) error {
 				continue
 			}
 
-			p.MoveChan <- &game.Move{Collect: &game.CollectMove{Take: take, Return: ret}}
+			p.MoveChan <- &splendor.Move{Collect: &splendor.CollectMove{Take: take, Return: ret}}
 		case "moves":
 			if p.State.Players == nil {
 				p.Println("No active state")
@@ -179,21 +194,39 @@ func (p *TerminalPlayer) Run(ctx context.Context) error {
 			p.MoveChan <- moves[num]
 
 		default:
-			p.Println("Commands: board hand gems cards moves exit")
+			p.Println("Commands: board hand gems cards moves exit\n")
 		}
 	}
 
 }
 
-func (p *TerminalPlayer) Accept(ctx context.Context, message v1alpha1.Message) error {
-	p.Println(fmt.Sprintf("\nMessage from game server:%s\n", message))
+func (p *TerminalPlayer) Handle(ctx context.Context, packet wire.Packet) error {
+	switch packet.Type {
+	case messages.PacketTypeRequestMove:
+		state, err := p.Message.ExtractState(packet)
+		if err != nil {
+			return err
+		}
+		go p.Request(ctx, state, packet.ID)
+		return nil
+	case messages.PacketTypePlayerMoveInfo:
+		var so game.SerializedObject
+		json.Unmarshal(packet.Payload, &so)
+		fmt.Println(packet.Type, string(so.Data))
+		info, err := p.Message.ExtractPlayerMoveInfo(packet)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Got player move info", string(info.Move.Data))
+	}
+	p.Println(fmt.Sprintf("\nMessage from game server:%s\n", string(packet.Payload)))
 	return nil
 }
 
-func (p *TerminalPlayer) Request(ctx context.Context, req v1alpha1.MoveRequest) (v1alpha1.Move, error) {
-	typed, ok := req.State.(game.State)
+func (p *TerminalPlayer) Request(ctx context.Context, state game.StateData, req uuid.UUID) error {
+	typed, ok := state.(splendor.State)
 	if !ok {
-		return nil, fmt.Errorf("Wrong game")
+		return fmt.Errorf("Wrong game")
 	}
 	p.NeedMoveLock.Lock()
 	p.State = typed
@@ -204,13 +237,17 @@ func (p *TerminalPlayer) Request(ctx context.Context, req v1alpha1.MoveRequest) 
 
 	move := <-p.MoveChan
 	p.NeedMoveLock.Lock()
-	p.NeedMove = true
+	p.NeedMove = false
 	p.NeedMoveLock.Unlock()
-	return move, nil
+	packet, err := p.Message.MessagePlayerMove(move, req)
+	if err != nil {
+		return err
+	}
+	return p.Client.Send(ctx, *packet)
 }
 
-func (p *TerminalPlayer) PrintMove(i int, move v1alpha1.Move) error {
-	data, err := move.Serialize()
+func (p *TerminalPlayer) PrintMove(i int, move game.Move) error {
+	data, err := json.Marshal(move)
 	if err != nil {
 		return err
 	}
@@ -226,11 +263,35 @@ func (p *TerminalPlayer) Println(vs ...interface{}) {
 	for i := range vs {
 		ss[i] = fmt.Sprintf("%v", vs[i])
 	}
-	p.LogMessages <- strings.Join(ss, " ") + "\n"
+	msg := strings.Join(ss, " ") + "\n"
+	fmt.Printf(msg)
 }
 
 func (p *TerminalPlayer) Printf(format string, args ...interface{}) {
 	p.LogMessages <- fmt.Sprintf(format, args...)
+}
+
+func (p *TerminalPlayer) drain() {
+	for len(p.LogMessages) > 0 {
+		msg := <-p.LogMessages
+		fmt.Printf(msg)
+	}
+}
+
+func (p *TerminalPlayer) pauseLogs() {
+	if p.logPause {
+		return
+	}
+	p.logLock.Lock()
+	p.logPause = true
+}
+
+func (p *TerminalPlayer) resumeLogs() {
+	if !p.logPause {
+		return
+	}
+	p.logPause = false
+	p.logLock.Unlock()
 }
 
 func (p *TerminalPlayer) writeLogs(ctx context.Context) error {
@@ -239,7 +300,12 @@ func (p *TerminalPlayer) writeLogs(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case msg := <-p.LogMessages:
-			fmt.Printf(msg)
+			if p.logPause {
+				p.logLock.Lock()
+				fmt.Printf(msg)
+			} else {
+				fmt.Printf(msg)
+			}
 		}
 	}
 }
@@ -299,7 +365,10 @@ func (p *TerminalPlayer) Prompt(prompt string) string {
 
 // PromptFrom gives a prompt and reads input until newlines from a given set of streams.
 func (p *TerminalPlayer) PromptFrom(stdout io.Writer, stdin io.Reader, prompt string) string {
-	p.Printf(prompt)
+	// p.pauseLogs()
+	// p.drain()
+	// defer p.resumeLogs()
+	fmt.Printf(prompt)
 
 	scanner := bufio.NewScanner(stdin)
 	var output string

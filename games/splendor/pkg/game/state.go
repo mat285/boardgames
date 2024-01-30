@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/blend/go-sdk/uuid"
+	"github.com/mat285/boardgames/games/splendor/meta"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
 )
@@ -14,6 +15,7 @@ var (
 )
 
 type State struct {
+	meta.Object
 	Config       Config
 	Players      []Player
 	CurrentIndex int

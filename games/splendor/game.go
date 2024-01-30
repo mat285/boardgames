@@ -4,7 +4,9 @@ import (
 	"fmt"
 
 	"github.com/blend/go-sdk/uuid"
+	"github.com/mat285/boardgames/games/splendor/meta"
 	"github.com/mat285/boardgames/games/splendor/pkg/game"
+	"github.com/mat285/boardgames/games/splendor/serializer"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
 )
 
@@ -13,10 +15,17 @@ const (
 )
 
 var (
+	ID = uuid.V4()
+)
+
+var (
 	_ v1alpha1.Game = new(Game)
 )
 
 type Game struct {
+	meta.Meta
+	serializer.Serializer
+
 	Config game.Config
 }
 

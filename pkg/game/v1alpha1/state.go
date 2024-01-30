@@ -1,7 +1,5 @@
 package v1alpha1
 
-import "github.com/blend/go-sdk/uuid"
-
 type State struct {
 	Version  uint64
 	Players  []Player
@@ -14,13 +12,4 @@ func NewState(players []Player) *State {
 		Version: 0,
 		Players: players,
 	}
-}
-
-func (s *State) GetPlayer(id uuid.UUID) *Player {
-	for i, p := range s.Players {
-		if p.ID.Equal(id) {
-			return &s.Players[i]
-		}
-	}
-	return nil
 }

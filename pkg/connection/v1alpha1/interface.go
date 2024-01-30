@@ -1,17 +1,29 @@
 package v1alpha1
 
-import "context"
+import (
+	"context"
+
+	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
+)
 
 type Interface interface {
-	Connect(ctx context.Context) error
 	Sender
-	Listener
+	Receiver
 }
 
 type Sender interface {
-	Send(context.Context, Packet) error
+	Send(context.Context, wire.Packet) error
 }
 
 type Listener interface {
-	Listen(context.Context, PacketHandler)
+	Listen(context.Context, PacketHandler) error
+}
+
+type Receiver interface {
+	Receive(context.Context, wire.Packet) error
+}
+
+type Router interface {
+	ReceiveClient(context.Context, wire.Packet) error
+	ReceiveServer(context.Context, wire.Packet) error
 }
