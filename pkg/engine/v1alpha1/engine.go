@@ -30,8 +30,7 @@ type Engine struct {
 
 	Persist persist.Interface
 
-	interrupt chan Event
-	stop      chan struct{}
+	stop chan struct{}
 }
 
 func NewEngine(g game.Game) *Engine {
@@ -40,7 +39,6 @@ func NewEngine(g game.Game) *Engine {
 		Players:         make(map[string]*Player),
 		MessageProvider: messages.NewProvider(g),
 		Game:            g,
-		interrupt:       make(chan Event),
 		stop:            make(chan struct{}),
 	}
 	e.request = connection.NewRequestManager(e.receive)
@@ -70,6 +68,10 @@ func (e *Engine) receive(ctx context.Context, packet wire.Packet) error {
 
 func (e *Engine) Start(ctx context.Context) error {
 	e.Lock()
+	if e.started {
+		e.Unlock()
+		return fmt.Errorf("Game already started")
+	}
 	data, err := e.Game.Initialize(e.PlayerIDs())
 	if err != nil {
 		e.Unlock()
@@ -77,92 +79,85 @@ func (e *Engine) Start(ctx context.Context) error {
 	}
 	e.State.Data = data
 	e.started = true
+	e.stop = make(chan struct{})
 	e.Unlock()
 	return e.gameLoop(ctx)
 }
 
 func (e *Engine) gameLoop(ctx context.Context) error {
-	if e.stop == nil {
-		e.stop = make(chan struct{})
-	}
-
 	for {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-e.stop:
 			return nil
-		case inter := <-e.interrupt:
-			err := e.handleInterrupt(ctx, inter)
-			if err != nil {
-				return err
-			}
 		default:
 		}
 
-		if e.State.Data.IsDone() {
-			msg, err := e.MessageProvider.MessageGameOver(e.State.Data.Winners())
-			if err != nil {
-				return err
-			}
-			return e.Broadcast(ctx, msg)
-		}
-
-		pid, err := e.State.Data.CurrentPlayer()
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		player := e.GetPlayer(pid)
-		if player == nil {
-			fmt.Println("No player for id", pid)
-			continue
-		}
-
-		msg, err := e.MessageProvider.MessageRequestMove(e.State.Data)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		resp, err := e.request.Request(ctx, player, *msg)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		move, err := e.MessageProvider.ExtractMove(*resp)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		response, err := move.Apply(e.State.Data)
-		if err != nil {
-			fmt.Println(err)
-			player.Send(ctx, wire.ErrorPacket(err))
-			continue
-		}
-
-		if !response.Valid {
-			fmt.Println("Invalid Move")
-			continue
-		}
-
-		msg, err = e.MessageProvider.MessagePlayerMoveInfo(player.ID, move)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-		err = e.Broadcast(ctx, msg, player.ID)
-		if err != nil {
-			fmt.Println(err)
-			continue
-		}
-
-		e.State.Data = response.State
+		e.Lock()
+		err := e.gameTurnUnsafe(ctx)
+		e.Unlock()
+		fmt.Println(err)
 	}
+}
+
+func (e *Engine) gameTurnUnsafe(ctx context.Context) error {
+	if e.State.Data.IsDone() {
+		msg, err := e.MessageProvider.MessageGameOver(e.State.Data.Winners())
+		if err != nil {
+			return err
+		}
+		return e.Broadcast(ctx, msg)
+	}
+
+	pid, err := e.State.Data.CurrentPlayer()
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	player := e.GetPlayer(pid)
+	if player == nil {
+		return fmt.Errorf("No player for id", pid)
+	}
+
+	msg, err := e.MessageProvider.MessageRequestMove(e.State.Data)
+	if err != nil {
+		return err
+	}
+
+	resp, err := e.request.Request(ctx, player, *msg)
+	if err != nil {
+		return err
+	}
+
+	move, err := e.MessageProvider.ExtractMove(*resp)
+	if err != nil {
+		return err
+	}
+
+	response, err := move.Apply(e.State.Data)
+	if err != nil {
+		player.Send(ctx, wire.ErrorPacket(err))
+		return err
+	}
+
+	if !response.Valid {
+		player.Send(ctx, wire.ErrorPacket(fmt.Errorf("Invalid Move")))
+		return fmt.Errorf("Invalid Move")
+	}
+
+	msg, err = e.MessageProvider.MessagePlayerMoveInfo(player.ID, move)
+	if err != nil {
+		return err
+	}
+	err = e.Broadcast(ctx, msg, player.ID)
+	if err != nil {
+		return err
+	}
+
+	e.State.Data = response.State
+	return nil
 }
 
 func (e *Engine) handleInterrupt(ctx context.Context, event Event) error {

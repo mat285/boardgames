@@ -12,10 +12,6 @@ import (
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
-var (
-	_ connection.Server = new(Server)
-)
-
 type Server struct {
 	sync.Mutex
 	clients map[string]*connection.ClientInfo
