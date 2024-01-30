@@ -7,6 +7,7 @@ import (
 	"github.com/mat285/boardgames/games/splendor"
 	"github.com/mat285/boardgames/games/splendor/pkg/client/terminal"
 	"github.com/mat285/boardgames/games/splendor/pkg/game"
+	bot "github.com/mat285/boardgames/pkg/bot/v1alpha1"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
 	local "github.com/mat285/boardgames/pkg/local/v1alpha1"
@@ -38,11 +39,13 @@ func getGame() v1alpha1.Game {
 }
 
 func getPlayers(g v1alpha1.Game, s *local.Server) []connection.Client {
-	p := terminal.NewTerminalPlayer(g, getLocalClient(s))
-	go p.Run(context.Background())
+	p := terminal.NewTerminalPlayer("user", g, getLocalClient(s))
+	b := bot.NewBot("bot", g, getLocalClient(s), bot.NewRandom())
+	go p.Start(context.Background())
+	go b.Start(context.Background())
 	return []connection.Client{
 		p,
-		// bot.NewBot(uuid.V4(), "bot", connection.NewLocalConnection(), bot.NewRandom()),
+		b,
 	}
 }
 

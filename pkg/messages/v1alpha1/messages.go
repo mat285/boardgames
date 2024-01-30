@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/blend/go-sdk/uuid"
+	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
@@ -19,12 +20,12 @@ func NewProvider(s game.Serializer) Provider {
 	}
 }
 
-func (mp Provider) NewPacket(t wire.PacketType, payload interface{}) (*wire.Packet, error) {
+func (mp Provider) NewPacket(t wire.PacketType, payload interface{}, opts ...wire.PacketOption) (*wire.Packet, error) {
 	bytes, err := json.Marshal(payload)
 	if err != nil {
 		return nil, err
 	}
-	packet := wire.NewPacket(wire.OptPacketType(t), wire.OptPacketPayload(bytes))
+	packet := wire.NewPacket(append([]wire.PacketOption{wire.OptPacketType(t), wire.OptPacketPayload(bytes)}, opts...)...)
 	return &packet, nil
 }
 
@@ -49,12 +50,12 @@ func (mp Provider) ExtractPlayerMoveInfo(packet wire.Packet) (*MessageBodyPlayer
 	return &data, nil
 }
 
-func (mp Provider) MessagePlayerMove(move game.Move) (*wire.Packet, error) {
+func (mp Provider) MessagePlayerMove(move game.Move, req uuid.UUID) (*wire.Packet, error) {
 	so, err := mp.SerializeMove(move)
 	if err != nil {
 		return nil, err
 	}
-	return mp.NewPacket(PacketTypePlayerMove, so)
+	return mp.NewPacket(PacketTypePlayerMove, so, wire.OptPacketHeaderValue(connection.PacketHeaderRequestID, req.ToFullString()))
 }
 
 func (mp Provider) MessageGameOver(winners []uuid.UUID) (*wire.Packet, error) {

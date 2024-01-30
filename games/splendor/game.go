@@ -1,7 +1,6 @@
 package splendor
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/blend/go-sdk/uuid"
@@ -24,8 +23,8 @@ var (
 )
 
 type Game struct {
-	meta.Object
-	serializer.Get
+	meta.Meta
+	serializer.Serializer
 
 	Config game.Config
 }
@@ -70,27 +69,4 @@ func (g *Game) Load(state v1alpha1.StateData) error {
 	}
 	g.Config = typed.Config
 	return nil
-}
-
-func (g Game) SerializeMove(move v1alpha1.Move) ([]byte, error) {
-	return json.Marshal(move)
-}
-
-func (g Game) DeserializeMove(data []byte) (v1alpha1.Move, error) {
-	var move game.Move
-	return &move, json.Unmarshal(data, &move)
-}
-
-func (g Game) SerializeState(state v1alpha1.StateData) ([]byte, error) {
-	typed, ok := state.(game.State)
-	if !ok {
-		return nil, fmt.Errorf("Wrong state for this game")
-	}
-	return json.Marshal(typed)
-}
-
-func (g Game) DeserializeState(data []byte) (v1alpha1.StateData, error) {
-	var state game.State
-	err := json.Unmarshal(data, &state)
-	return state, err
 }

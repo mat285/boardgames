@@ -13,10 +13,6 @@ import (
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
-var (
-// _ connection.Server = new(Engine)
-)
-
 type Engine struct {
 	sync.Mutex
 	ID uuid.UUID
@@ -42,7 +38,7 @@ func NewEngine(g game.Game) *Engine {
 	e := &Engine{
 		ID:              uuid.V4(),
 		Players:         make(map[string]*Player),
-		MessageProvider: messages.NewProvider(g.Serializer()),
+		MessageProvider: messages.NewProvider(g),
 		Game:            g,
 		interrupt:       make(chan Event),
 		stop:            make(chan struct{}),
@@ -64,7 +60,6 @@ func (e *Engine) Join(ctx context.Context, client connection.ClientInfo) error {
 }
 
 func (e *Engine) Receive(ctx context.Context, packet wire.Packet) error {
-	fmt.Println("engine got packet", packet.ID)
 	return e.request.Receive(ctx, packet)
 }
 
@@ -131,7 +126,6 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 			continue
 		}
 
-		fmt.Println("engine sending move request", msg.ID)
 		resp, err := e.request.Request(ctx, player, *msg)
 		if err != nil {
 			fmt.Println(err)

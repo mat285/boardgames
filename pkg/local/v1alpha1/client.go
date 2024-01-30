@@ -14,27 +14,15 @@ var (
 )
 
 type Client struct {
-	ID     uuid.UUID
-	Engine uuid.UUID
-	Server *Server
-
-	packets chan packet
-}
-
-type packet struct {
-	p wire.Packet
-	c *clientReceive
-}
-
-type clientReceive struct {
-	c    *Client
-	errs chan error
+	ID      uuid.UUID
+	Engine  uuid.UUID
+	Server  *Server
+	Handler connection.PacketHandler
 }
 
 func NewClient(server *Server) *Client {
 	return &Client{
-		Server:  server,
-		packets: make(chan packet, 10),
+		Server: server,
 	}
 }
 
@@ -45,7 +33,7 @@ func (c *Client) Connect(ctx context.Context, _ connection.ConnectionInfo) error
 	id, err := c.Server.Connect(ctx, connection.ClientInfo{
 		ID:       c.ID,
 		Username: "",
-		Sender:   &clientReceive{c: c, errs: make(chan error, 1)},
+		Sender:   connection.PipeReceiverToSender(c),
 	})
 	if err != nil {
 		return err
@@ -66,19 +54,10 @@ func (c *Client) Join(ctx context.Context, id uuid.UUID) error {
 }
 
 func (c *Client) Listen(ctx context.Context, handler connection.PacketHandler) error {
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case p := <-c.packets:
-			p.c.errs <- handler(ctx, p.p)
-		}
-	}
+	c.Handler = handler
+	return nil
 }
 
-func (c *clientReceive) Send(ctx context.Context, p wire.Packet) error {
-	fmt.Println("client pipe sending to client")
-	c.c.packets <- packet{p: p, c: c}
-	fmt.Println()
-	return <-c.errs
+func (c *Client) Receive(ctx context.Context, packet wire.Packet) error {
+	return c.Handler(ctx, packet)
 }

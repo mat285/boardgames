@@ -17,20 +17,15 @@ var (
 )
 
 type Server struct {
-	clientsLock sync.Mutex
-	clients     map[string]*connection.ClientInfo
-
-	enginesLock sync.Mutex
-	engines     map[string]*engine.Engine
+	sync.Mutex
+	clients map[string]*connection.ClientInfo
+	engines map[string]*engine.Engine
 }
 
 func NewServer() *Server {
 	s := &Server{
-		clientsLock: sync.Mutex{},
-		clients:     make(map[string]*connection.ClientInfo),
-
-		enginesLock: sync.Mutex{},
-		engines:     make(map[string]*engine.Engine),
+		clients: make(map[string]*connection.ClientInfo),
+		engines: make(map[string]*engine.Engine),
 	}
 	return s
 }
@@ -38,25 +33,23 @@ func NewServer() *Server {
 func (s *Server) Connect(ctx context.Context, client connection.ClientInfo) (uuid.UUID, error) {
 	id := uuid.V4()
 	client.ID = id
-	s.clientsLock.Lock()
-	defer s.clientsLock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	s.clients[client.ID.ToFullString()] = &client
 	return id, nil
 }
 
 func (s *Server) Receive(ctx context.Context, packet wire.Packet) error {
-	origin := packet.Origin.ToFullString()
-	dst := packet.Destination.ToFullString()
-	fmt.Println("Got packet", origin, dst)
-
-	if s.clients[origin] != nil {
-		e := s.engines[dst]
+	origin := packet.Origin
+	dst := packet.Destination
+	if s.GetClient(origin) != nil {
+		e := s.GetEngine(dst)
 		if e == nil {
 			return fmt.Errorf("No engine")
 		}
 		return e.Receive(ctx, packet)
-	} else if s.engines[origin] != nil {
-		client := s.clients[dst]
+	} else if s.GetEngine(origin) != nil {
+		client := s.GetClient(dst)
 		if client == nil {
 			return fmt.Errorf("No Client")
 		}
@@ -67,12 +60,20 @@ func (s *Server) Receive(ctx context.Context, packet wire.Packet) error {
 }
 
 func (s *Server) GetEngine(id uuid.UUID) *engine.Engine {
+	s.Lock()
+	defer s.Unlock()
 	return s.engines[id.ToFullString()]
 }
 
+func (s *Server) GetClient(id uuid.UUID) *connection.ClientInfo {
+	s.Lock()
+	defer s.Unlock()
+	return s.clients[id.ToFullString()]
+}
+
 func (s *Server) NewEngine(g v1alpha1.Game) *engine.Engine {
-	s.enginesLock.Lock()
-	defer s.enginesLock.Unlock()
+	s.Lock()
+	defer s.Unlock()
 	e := engine.NewEngine(g)
 	s.engines[e.ID.ToFullString()] = e
 	return e
@@ -87,7 +88,7 @@ func (s *Server) StartEngine(ctx context.Context, id uuid.UUID) error {
 }
 
 func (s *Server) Join(ctx context.Context, clientID uuid.UUID, engine uuid.UUID) error {
-	client := s.clients[clientID.ToFullString()]
+	client := s.GetClient(clientID)
 	if client == nil {
 		return fmt.Errorf("Unknown client")
 	}

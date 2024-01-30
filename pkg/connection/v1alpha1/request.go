@@ -49,14 +49,12 @@ func NewRequestManager(upstream PacketHandler) Requester {
 
 func (rm *RequestManager) Receive(ctx context.Context, packet wire.Packet) error {
 	reqID := packet.Options.Value(PacketHeaderRequestID)
-	fmt.Println("req manager got packet", packet.ID, reqID)
 	if len(reqID) == 0 {
 		return rm.upstream(ctx, packet)
 	}
 	rm.Lock()
 	defer rm.Unlock()
 	if resp, has := rm.responses[reqID]; has && resp.p != nil && len(resp.p) == 0 {
-		fmt.Println("rm sent packet on channel", packet.ID)
 		resp.p <- packet
 		rm.closeResponseChannelUnsafe(reqID)
 		return nil
@@ -76,15 +74,12 @@ func (rm *RequestManager) Request(ctx context.Context, sender Sender, packet wir
 	rm.Unlock()
 
 	packet.Options.Add(PacketHeaderRequestResponse, packet.ID.ToFullString())
-	fmt.Println("fm sending packet to cli")
 	err := sender.Send(ctx, packet)
 	if err != nil {
-		fmt.Println("req manager exiting", err)
 		rm.closeResponseChannel(key)
 		return nil, err
 	}
 
-	fmt.Println("rm listening on channel")
 	tick := time.After(time.Second * 300)
 	select {
 	case <-ctx.Done():
@@ -94,7 +89,6 @@ func (rm *RequestManager) Request(ctx context.Context, sender Sender, packet wir
 		rm.closeResponseChannel(key)
 		return nil, fmt.Errorf("Timeout")
 	case packet := <-resp.p:
-		fmt.Println("req manager got response packet", packet.ID)
 		return &packet, nil
 	}
 }
