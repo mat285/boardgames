@@ -1,5 +1,9 @@
 package v1alpha1
 
-import "context"
+import (
+	"context"
 
-type PacketHandler func(context.Context, Packet) error
+	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
+)
+
+type PacketHandler func(context.Context, wire.Packet) error

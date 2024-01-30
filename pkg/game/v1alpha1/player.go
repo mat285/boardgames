@@ -1,47 +1,44 @@
 package v1alpha1
 
 import (
-	"context"
-
 	"github.com/blend/go-sdk/uuid"
 )
 
-type Player interface {
-	GetID() uuid.UUID
-	GetUsername() string
-	GetConnection() Connection
-}
-
-type BasePlayer struct {
+type Player struct {
 	ID       uuid.UUID
 	Username string
 }
 
-type Connection interface {
-	Sender
-	Receiver
-}
+// type BasePlayer struct {
+// 	ID       uuid.UUID
+// 	Username string
+// }
 
-type Sender interface {
-	Send(context.Context, Message) error
-	Request(context.Context, Message) (*Message, error)
-}
+// type Connection interface {
+// 	Sender
+// 	Receiver
+// }
 
-type Receiver interface {
-	Receive(context.Context, MessageHandler) error
-}
+// type Sender interface {
+// 	Send(context.Context, Message) error
+// 	Request(context.Context, Message) (*Message, error)
+// }
 
-func NewBasePlayer(id uuid.UUID, username string) BasePlayer {
-	return BasePlayer{
-		ID:       id,
-		Username: username,
-	}
-}
+// type Receiver interface {
+// 	Receive(context.Context, MessageHandler) error
+// }
 
-func (bp BasePlayer) GetID() uuid.UUID {
-	return bp.ID
-}
+// func NewBasePlayer(id uuid.UUID, username string) BasePlayer {
+// 	return BasePlayer{
+// 		ID:       id,
+// 		Username: username,
+// 	}
+// }
 
-func (bp BasePlayer) GetUsername() string {
-	return bp.Username
-}
+// func (bp BasePlayer) GetID() uuid.UUID {
+// 	return bp.ID
+// }
+
+// func (bp BasePlayer) GetUsername() string {
+// 	return bp.Username
+// }

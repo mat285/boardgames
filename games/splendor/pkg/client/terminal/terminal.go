@@ -16,17 +16,16 @@ import (
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
 	"github.com/mat285/boardgames/games/splendor/serializer"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
-	engine "github.com/mat285/boardgames/pkg/engine/v1alpha1"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
+	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
+	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
-var _ engine.Player = new(TerminalPlayer)
+var _ connection.Client = new(TerminalPlayer)
 
 type TerminalPlayer struct {
-	engine.ConnectedPlayer
-
-	Connection *engine.Connection
-
+	connection.Client
+	messages.Provider
 	serializer.Get
 
 	State        game.State
@@ -40,25 +39,19 @@ type TerminalPlayer struct {
 	logLock  sync.Mutex
 }
 
-func NewTerminalPlayer(g v1alpha1.Game, server connection.Server) *TerminalPlayer {
+func NewTerminalPlayer(g v1alpha1.Game, client connection.Client) *TerminalPlayer {
 	tp := &TerminalPlayer{
+		Client:      client,
+		Provider:    messages.NewProvider(g.Serializer()),
 		NeedMove:    false,
 		MoveChan:    make(chan v1alpha1.Move),
 		LogMessages: make(chan string, 100),
 	}
-	tp.ConnectedPlayer = engine.NewConnectedPlayer(uuid.V4(), "user", g, server)
-	conn, _ := server.Connect(context.Background())
-	tp.Connection = engine.NewConnection(g, conn)
 	return tp
 }
 
-func (p *TerminalPlayer) Connect(ctx context.Context) error {
-	go p.ConnectedPlayer.Receive(ctx, p.Handle)
-	go p.Run(ctx)
-	return nil
-}
-
 func (p *TerminalPlayer) Run(ctx context.Context) error {
+	go p.Client.Listen(ctx, p.Handle)
 	go p.writeLogs(ctx)
 	for {
 		select {
@@ -210,27 +203,34 @@ func (p *TerminalPlayer) Run(ctx context.Context) error {
 
 }
 
-func (p *TerminalPlayer) Handle(ctx context.Context, message v1alpha1.Message) (*v1alpha1.Message, error) {
-	switch message.Type {
-	case v1alpha1.MessageTypeRequestMove:
-		so, err := message.DeserializeToObject()
+func (p *TerminalPlayer) Handle(ctx context.Context, packet wire.Packet) error {
+	fmt.Println("We got packet", packet.ID)
+	switch packet.Type {
+	case messages.PacketTypeRequestMove:
+		state, err := p.Provider.ExtractState(packet)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		state, err := p.Serializer().DeserializeState(so)
+		go p.Request(ctx, state, packet.ID)
+		return nil
+	case messages.PacketTypePlayerMoveInfo:
+		var so v1alpha1.SerializedObject
+		json.Unmarshal(packet.Payload, &so)
+		fmt.Println(packet.Type, string(so.Data))
+		info, err := p.Provider.ExtractPlayerMoveInfo(packet)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		return p.Request(ctx, state)
+		fmt.Println("Got player move info", string(info.Move.Data))
 	}
-	p.Println(fmt.Sprintf("\nMessage from game server:%s\n", message))
-	return nil, nil
+	p.Println(fmt.Sprintf("\nMessage from game server:%s\n", ""))
+	return nil
 }
 
-func (p *TerminalPlayer) Request(ctx context.Context, state v1alpha1.StateData) (*v1alpha1.Message, error) {
+func (p *TerminalPlayer) Request(ctx context.Context, state v1alpha1.StateData, req uuid.UUID) error {
 	typed, ok := state.(game.State)
 	if !ok {
-		return nil, fmt.Errorf("Wrong game")
+		return fmt.Errorf("Wrong game")
 	}
 	p.NeedMoveLock.Lock()
 	p.State = typed
@@ -241,13 +241,14 @@ func (p *TerminalPlayer) Request(ctx context.Context, state v1alpha1.StateData) 
 
 	move := <-p.MoveChan
 	p.NeedMoveLock.Lock()
-	p.NeedMove = true
+	p.NeedMove = false
 	p.NeedMoveLock.Unlock()
-	data, err := p.Serializer().SerializeMove(move)
+	packet, err := p.Provider.MessagePlayerMove(move)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return v1alpha1.NewMessage(v1alpha1.MessageTypePlayerMove, data)
+	packet.Options.Add(connection.PacketHeaderRequestID, req.ToFullString())
+	return p.Client.Send(ctx, *packet)
 }
 
 func (p *TerminalPlayer) PrintMove(i int, move v1alpha1.Move) error {
@@ -267,7 +268,8 @@ func (p *TerminalPlayer) Println(vs ...interface{}) {
 	for i := range vs {
 		ss[i] = fmt.Sprintf("%v", vs[i])
 	}
-	p.LogMessages <- strings.Join(ss, " ") + "\n"
+	msg := strings.Join(ss, " ") + "\n"
+	fmt.Printf(msg)
 }
 
 func (p *TerminalPlayer) Printf(format string, args ...interface{}) {

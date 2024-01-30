@@ -25,3 +25,10 @@ func DeserializePacket(raw []byte) (*Packet, error) {
 func (p Packet) Serialize() ([]byte, error) {
 	return json.Marshal(p)
 }
+
+func ErrorPacket(err error) Packet {
+	return NewPacket(
+		OptPacketType(PacketTypeError),
+		OptPacketPayload([]byte(err.Error())),
+	)
+}

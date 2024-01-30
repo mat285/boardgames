@@ -11,10 +11,11 @@ type Header struct {
 }
 
 type Metadata struct {
-	ID         uuid.UUID
-	Request    uuid.UUID
-	Type       PacketType
-	APIVersion string
+	ID          uuid.UUID
+	Origin      uuid.UUID
+	Destination uuid.UUID
+	Type        PacketType
+	APIVersion  string
 }
 
 type HeaderOptions map[string]string
@@ -28,6 +29,20 @@ func (ho *HeaderOptions) Append(other HeaderOptions) {
 	}
 }
 
+func (ho *HeaderOptions) Add(k, v string) {
+	if ho == nil {
+		return
+	}
+	(*ho)[k] = v
+}
+
+func (ho HeaderOptions) Value(key string) string {
+	if ho == nil {
+		return ""
+	}
+	return ho[key]
+}
+
 func NewHeader() Header {
 	return Header{
 		Metadata: Metadata{
@@ -36,16 +51,4 @@ func NewHeader() Header {
 		},
 		Options: make(HeaderOptions),
 	}
-}
-
-type PacketType uint64
-
-const (
-	PacketTypeUnknown = 0
-
-	PacketTypeClientData = 1000
-)
-
-func MinDataPacketType() PacketType {
-	return PacketTypeClientData
 }
