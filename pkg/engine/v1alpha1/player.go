@@ -11,11 +11,6 @@ type Player struct {
 	connection.Sender
 }
 
-// type ConnectedPlayer struct {
-// 	game.BasePlayer
-// 	*Connection
-// }
-
 func NewPlayer(id uuid.UUID, username string, conn connection.Sender) *Player {
 	return &Player{
 		Player: game.Player{ID: id, Username: username},

@@ -13,12 +13,3 @@ func NewState(players []Player) *State {
 		Players: players,
 	}
 }
-
-// func (s *State) GetPlayer(id uuid.UUID) Player {
-// 	for i, p := range s.Players {
-// 		if p.ID.Equal(id) {
-// 			return s.Players[i]
-// 		}
-// 	}
-// 	return nil
-// }
