@@ -45,7 +45,7 @@ func CardCounts() []CardCount {
 				Name:        "Wheat Field",
 				Type:        CardTypePrimaryIndustry,
 				Icon:        CardIconWheat,
-				Cost:        1,
+				Cost:        NewCost(1),
 				Activation:  common.NewIntRange(1, 2),
 				Description: "",
 			},

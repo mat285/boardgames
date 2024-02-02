@@ -9,9 +9,16 @@ type Card struct {
 	Name        string
 	Type        CardType
 	Icon        CardIcon
-	Cost        int
+	Cost        Cost
 	Activation  common.IntRange
 	Description string
+}
+
+func (c Card) GetCost(modifiers ...CostModifier) int {
+	for _, mod := range modifiers {
+		c.Cost = mod(c)
+	}
+	return c.Cost.Cost()
 }
 
 type CardType int

@@ -172,20 +172,3 @@ func (s State) Winners() []uuid.UUID {
 	}
 	return max
 }
-
-// func (s State) Serialize() ([]byte, error) {
-// 	hand, err := json.MarshalIndent(s.Players[s.CurrentIndex].Hand, "", "  ")
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	cards, err := json.MarshalIndent(s.Board.AvailableCards(), "", "  ")
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	hand = append(hand, '\n', '\n')
-// 	return append(hand, cards...), nil
-// }
-
-// func (s State) Deserialize(data []byte) error {
-// 	return json.Unmarshal(data, &s)
-// }
