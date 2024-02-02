@@ -101,21 +101,33 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 				p.Println("No active state")
 				continue
 			}
-			hand := p.State.Players[p.State.CurrentIndex].Hand
+			player, err := p.State.GetCurrentPlayer()
+			if err != nil {
+				p.Println(err)
+			}
+			hand := player.Hand
 			p.Println(prettyJSON(hand))
 		case "gems":
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
 			}
-			hand := p.State.Players[p.State.CurrentIndex].Hand
+			player, err := p.State.GetCurrentPlayer()
+			if err != nil {
+				p.Println(err)
+			}
+			hand := player.Hand
 			p.Println(prettyJSON(hand.Gems.Add(hand.CardCounts())))
 		case "cards":
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
 			}
-			hand := p.State.Players[p.State.CurrentIndex].Hand
+			player, err := p.State.GetCurrentPlayer()
+			if err != nil {
+				p.Println(err)
+			}
+			hand := player.Hand
 			p.Println(prettyJSON(hand.Cards))
 		case "reserve", "purchase":
 			if len(parts) != 2 {

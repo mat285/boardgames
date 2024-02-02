@@ -62,6 +62,7 @@ func (m *Move) Apply(raw v1alpha1.StateData) (*v1alpha1.MoveResult, error) {
 	return res, err
 
 }
+
 func (m *Move) Validate() (bool, error) {
 	nonNil := 0
 	if m.Collect != nil {

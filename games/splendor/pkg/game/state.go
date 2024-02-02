@@ -1,12 +1,12 @@
 package game
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/blend/go-sdk/uuid"
 	"github.com/mat285/boardgames/games/splendor/meta"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
+	common "github.com/mat285/boardgames/pkg/common/v1alpha1"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
 )
 
@@ -16,19 +16,20 @@ var (
 
 type State struct {
 	meta.Object
-	Config       Config
-	Players      []Player
-	CurrentIndex int
+	Config  Config
+	Players []Player
+
+	Turn common.TurnCounter
 
 	Board items.Board
 }
 
 func NewState(players []Player, config Config) State {
 	return State{
-		Players:      players,
-		CurrentIndex: 0,
-		Config:       config,
-		Board:        items.NewBoard(),
+		Players: players,
+		Config:  config,
+		Turn:    common.NewTurnCounter(len(players), 0),
+		Board:   items.NewBoard(),
 	}
 }
 
@@ -45,7 +46,7 @@ func (s State) apply(move Move) (state State, valid bool, err error) {
 		return s, false, fmt.Errorf("No move")
 	}
 	if valid {
-		state.CurrentIndex = s.Next()
+		state.Turn = state.Turn.Advance()
 	}
 	return
 }
@@ -55,7 +56,11 @@ func (s State) applyCollect(move CollectMove) (State, bool, error) {
 	if err != nil {
 		return s, false, err
 	}
-	hand := s.Players[s.CurrentIndex].Hand
+	player, err := s.GetCurrentPlayer()
+	if err != nil {
+		return s, false, err
+	}
+	hand := player.Hand
 	gems := hand.Gems.Add(move.Take).ToMap()
 
 	if gems.Total() > 10 {
@@ -65,13 +70,16 @@ func (s State) applyCollect(move CollectMove) (State, bool, error) {
 		}
 	}
 	hand.Gems = gems.ToCount()
-	s.Players[s.CurrentIndex].Hand = hand
+	s = s.setCurrentPlayerHand(hand)
 	return s, true, err
 }
 
 func (s State) applyPurchase(move CardMove) (State, bool, error) {
-	hand := s.Players[s.CurrentIndex].Hand
-
+	player, err := s.GetCurrentPlayer()
+	if err != nil {
+		return s, false, err
+	}
+	hand := player.Hand
 	if !hand.CanPurchase(move.Card) {
 		return s, false, nil
 	}
@@ -89,12 +97,17 @@ func (s State) applyPurchase(move CardMove) (State, bool, error) {
 	if onBoard {
 		s.Board = s.Board.RemoveCard(move.Card)
 	}
-	s.Players[s.CurrentIndex].Hand = hand
+
+	s = s.setCurrentPlayerHand(hand)
 	return s, true, nil
 }
 
 func (s State) applyReserve(move CardMove) (State, bool, error) {
-	hand := s.Players[s.CurrentIndex].Hand
+	player, err := s.GetCurrentPlayer()
+	if err != nil {
+		return s, false, err
+	}
+	hand := player.Hand
 	if !hand.CanReserve() {
 		return s, false, nil
 	}
@@ -103,27 +116,44 @@ func (s State) applyReserve(move CardMove) (State, bool, error) {
 	}
 	s.Board = s.Board.RemoveCard(move.Card)
 	hand = hand.Reserve(move.Card)
-	s.Players[s.CurrentIndex].Hand = hand
+	player.Hand = hand
 	return s, true, nil
 }
 
 func (s State) CurrentPlayer() (uuid.UUID, error) {
-	if len(s.Players) <= s.CurrentIndex {
-		return nil, fmt.Errorf("Invalid Player Index %d", s.CurrentIndex)
+	player, err := s.GetCurrentPlayer()
+	if err != nil {
+		return nil, err
 	}
-	return s.Players[s.CurrentIndex].ID, nil
+	return player.ID, nil
+}
+
+func (s State) GetCurrentPlayer() (Player, error) {
+	idx := s.Turn.CurrentPlayer()
+	if len(s.Players) <= idx {
+		return Player{}, fmt.Errorf("Invalid Player Index %d", idx)
+	}
+	return s.Players[idx], nil
+}
+
+func (s State) setCurrentPlayer(p Player) State {
+	idx := s.Turn.CurrentPlayer()
+	if len(s.Players) > idx {
+		s.Players[idx] = p
+	}
+	return s
+}
+
+func (s State) setCurrentPlayerHand(h items.Hand) State {
+	idx := s.Turn.CurrentPlayer()
+	if len(s.Players) > idx {
+		s.Players[idx].Hand = h
+	}
+	return s
 }
 
 func (s State) IsDone() bool {
 	return len(s.Winners()) > 0
-}
-
-func (s State) Next() int {
-	return (s.CurrentIndex + 1) % len(s.Players)
-}
-
-func (s State) AdvancePlayer() {
-	s.CurrentIndex = s.Next()
 }
 
 func (s State) Winners() []uuid.UUID {
@@ -143,19 +173,19 @@ func (s State) Winners() []uuid.UUID {
 	return max
 }
 
-func (s State) Serialize() ([]byte, error) {
-	hand, err := json.MarshalIndent(s.Players[s.CurrentIndex].Hand, "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	cards, err := json.MarshalIndent(s.Board.AvailableCards(), "", "  ")
-	if err != nil {
-		return nil, err
-	}
-	hand = append(hand, '\n', '\n')
-	return append(hand, cards...), nil
-}
+// func (s State) Serialize() ([]byte, error) {
+// 	hand, err := json.MarshalIndent(s.Players[s.CurrentIndex].Hand, "", "  ")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	cards, err := json.MarshalIndent(s.Board.AvailableCards(), "", "  ")
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	hand = append(hand, '\n', '\n')
+// 	return append(hand, cards...), nil
+// }
 
-func (s State) Deserialize(data []byte) error {
-	return json.Unmarshal(data, &s)
-}
+// func (s State) Deserialize(data []byte) error {
+// 	return json.Unmarshal(data, &s)
+// }

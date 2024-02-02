@@ -31,7 +31,12 @@ func (s State) ValidCollectMoves() []*Move {
 		}
 	}
 	takeret := make([]*Move, 0, len(moves))
-	hand := s.Players[s.CurrentIndex].Hand
+	player, err := s.GetCurrentPlayer()
+	if err != nil {
+		// todo  handle error
+		return moves
+	}
+	hand := player.Hand
 	total := hand.Gems.Total()
 	gemSlice := hand.Gems.ToSlice()
 	for i, move := range moves {
@@ -56,7 +61,11 @@ func (s State) ValidCollectMoves() []*Move {
 
 func (s State) ValidPurchaseMoves() []*Move {
 	moves := []*Move{}
-	hand := s.Players[s.CurrentIndex].Hand
+	player, err := s.GetCurrentPlayer()
+	if err != nil {
+		return moves
+	}
+	hand := player.Hand
 	for _, card := range s.Board.AvailableCards() {
 		if hand.CanPurchase(card) {
 			moves = append(moves, &Move{Purchase: &CardMove{Card: card}})
@@ -72,7 +81,11 @@ func (s State) ValidPurchaseMoves() []*Move {
 
 func (s State) ValidReserveMoves() []*Move {
 	moves := []*Move{}
-	hand := s.Players[s.CurrentIndex].Hand
+	player, err := s.GetCurrentPlayer()
+	if err != nil {
+		return moves
+	}
+	hand := player.Hand
 	if !hand.CanReserve() || s.Board.Gems.Wild <= 0 {
 		return moves
 	}
