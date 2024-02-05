@@ -37,7 +37,10 @@ func (s *Server) NewGame(r web.Ctx) web.Result {
 	if err != nil {
 		return web.JSON.BadRequest(err)
 	}
-	e := s.Router.NewEngine(g)
+	e, err := s.Router.NewEngine(r.Context(), g)
+	if err != nil {
+		return web.JSON.InternalError(err)
+	}
 	return web.JSON.Result(e.ID)
 }
 
@@ -63,7 +66,7 @@ func (s *Server) ClientPoll(r *web.Ctx) web.Result {
 	if client == nil {
 		return web.JSON.BadRequest(fmt.Errorf("Not connected"))
 	}
-	poller, ok := client.Sender.(*PollClient)
+	poller, ok := client.(*PollClient)
 	if !ok {
 		return web.JSON.InternalError(fmt.Errorf("bad type"))
 	}

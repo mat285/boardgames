@@ -48,7 +48,7 @@ func NewTerminalPlayer(username string, g game.Game, conn connection.Client) *Te
 }
 
 func (p *TerminalPlayer) Start(ctx context.Context) error {
-	go p.Client.Listen(ctx, p.Handle)
+	p.Client.Listen(ctx, p.Handle)
 	go p.writeLogs(ctx)
 	for {
 		select {

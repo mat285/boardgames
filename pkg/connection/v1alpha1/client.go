@@ -7,6 +7,7 @@ import (
 )
 
 type Client interface {
+	GetID() uuid.UUID
 	Connect(context.Context, ConnectionInfo) error
 	Join(context.Context, uuid.UUID) error
 	Sender

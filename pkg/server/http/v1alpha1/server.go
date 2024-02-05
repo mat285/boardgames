@@ -4,21 +4,21 @@ import (
 	"context"
 
 	"github.com/blend/go-sdk/web"
-	router "github.com/mat285/boardgames/pkg/router/v1alpha1"
+	core "github.com/mat285/boardgames/pkg/server/core/v1alpha1"
 )
 
 type Server struct {
 	Config web.Config
 	App    *web.App
 
-	Router *router.Router
+	Router *core.EngineRouter
 	Polls  map[string]*PollClient
 }
 
 func New(config web.Config) *Server {
 	s := &Server{
 		Config: config,
-		Router: router.NewRouter(),
+		Router: core.NewEngineRouter(),
 	}
 	return s
 }

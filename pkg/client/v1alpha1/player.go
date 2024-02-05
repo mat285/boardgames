@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"context"
 
+	"github.com/blend/go-sdk/uuid"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
 	logger "github.com/mat285/boardgames/pkg/logger/v1alpha1"
@@ -21,12 +22,17 @@ type Player struct {
 func NewPlayer(username string, g game.Game, client connection.Client) *Player {
 	return &Player{
 		Player: game.Player{
+			ID:       client.GetID(),
 			Username: username,
 		},
 		Game:    g,
 		Message: messages.NewProvider(g),
 		Client:  client,
 	}
+}
+
+func (p *Player) GetID() uuid.UUID {
+	return p.Player.ID
 }
 
 func (p *Player) Listen(ctx context.Context, handler connection.PacketHandler) error {

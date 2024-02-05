@@ -1,16 +1,26 @@
 package v1alpha1
 
 import (
+	"context"
+
 	"github.com/blend/go-sdk/uuid"
 )
 
-// type Server interface {
-// 	Receiver
-// 	Connect(context.Context, ClientInfo) (uuid.UUID, error)
-// }
+type Router interface {
+	Receiver
+	ConnectServer(context.Context, ServerInfo) error
+	ConnectClient(context.Context, ClientInfo) error
+	GetClient(uuid.UUID) ClientInfo
+	GetServer(uuid.UUID) ServerInfo
+}
 
-type ClientInfo struct {
-	ID       uuid.UUID
-	Username string
-	Sender   Sender
+type ClientInfo interface {
+	GetID() uuid.UUID
+	GetUsername() string
+	Sender
+}
+
+type ServerInfo interface {
+	GetID() uuid.UUID
+	Sender
 }

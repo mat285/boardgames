@@ -13,6 +13,10 @@ import (
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
+// var (
+// 	_ connection.ServerInfo = new(Engine)
+// )
+
 type Engine struct {
 	sync.Mutex
 	ID uuid.UUID
@@ -46,13 +50,21 @@ func NewEngine(g game.Game) *Engine {
 	return e
 }
 
+func (e *Engine) GetID() uuid.UUID {
+	return e.ID
+}
+
+func (e *Engine) SetID(id uuid.UUID) {
+	e.ID = id
+}
+
 func (e *Engine) Join(ctx context.Context, client connection.ClientInfo) error {
 	if e.started {
 		return fmt.Errorf("Game Already Started")
 	}
 	e.Lock()
 	defer e.Unlock()
-	player := NewPlayer(client.ID, client.Username, client.Sender)
+	player := NewPlayer(client.GetID(), client.GetUsername(), client)
 	e.Players[player.ID.ToFullString()] = player
 	return nil
 }
@@ -97,7 +109,9 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 		e.Lock()
 		err := e.gameTurnUnsafe(ctx)
 		e.Unlock()
-		fmt.Println(err)
+		if err != nil {
+			fmt.Println(err)
+		}
 	}
 }
 
@@ -118,13 +132,15 @@ func (e *Engine) gameTurnUnsafe(ctx context.Context) error {
 
 	player := e.GetPlayer(pid)
 	if player == nil {
-		return fmt.Errorf("No player for id", pid)
+		return fmt.Errorf("No player for id %s", pid)
 	}
 
 	msg, err := e.MessageProvider.MessageRequestMove(e.State.Data)
 	if err != nil {
 		return err
 	}
+	msg.Destination = pid
+	msg.Origin = e.ID
 
 	resp, err := e.request.Request(ctx, player, *msg)
 	if err != nil {

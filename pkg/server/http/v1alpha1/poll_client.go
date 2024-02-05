@@ -6,18 +6,19 @@ import (
 	"sync"
 
 	"github.com/blend/go-sdk/uuid"
+	core "github.com/mat285/boardgames/pkg/core/v1alpha1"
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
 type PollClient struct {
+	core.User
 	sync.Mutex
-	ID      uuid.UUID
 	Packets chan wire.Packet
 }
 
 func NewPollClient(id uuid.UUID) *PollClient {
 	return &PollClient{
-		ID:      id,
+		User:    core.NewUser(id, ""),
 		Packets: make(chan wire.Packet, 10),
 	}
 }

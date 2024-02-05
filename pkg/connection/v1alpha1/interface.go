@@ -22,8 +22,3 @@ type Listener interface {
 type Receiver interface {
 	Receive(context.Context, wire.Packet) error
 }
-
-type Router interface {
-	ReceiveClient(context.Context, wire.Packet) error
-	ReceiveServer(context.Context, wire.Packet) error
-}
