@@ -51,10 +51,14 @@ func (s *Router) Receive(ctx context.Context, packet wire.Packet) error {
 		return s.Send(ctx, packet)
 	} else if s.GetServer(packet.Origin) != nil {
 		client := s.GetClient(packet.Destination)
-		if client == nil {
-			return fmt.Errorf("No Client")
+		server := s.GetServer(packet.Destination)
+		if client != nil {
+			return client.Send(ctx, packet)
+		} else if server != nil {
+			return server.Send(ctx, packet)
+		} else {
+			return fmt.Errorf("Destination unreachable")
 		}
-		return client.Send(ctx, packet)
 	} else {
 		return fmt.Errorf("Unknown origin")
 	}

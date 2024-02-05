@@ -14,6 +14,7 @@ type Metadata struct {
 	ID          uuid.UUID
 	Origin      uuid.UUID
 	Destination uuid.UUID
+	Reference   uuid.UUID
 	Type        PacketType
 	APIVersion  string
 }

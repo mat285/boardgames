@@ -9,5 +9,7 @@ const (
 
 	PacketTypeError = 100
 
-	PacketTypeGameData = 1000
+	PacketTypeAPI = 1000
+
+	PacketTypeGameData = 100000
 )

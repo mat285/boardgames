@@ -28,6 +28,12 @@ func OptPacketDestination(id uuid.UUID) PacketOption {
 	}
 }
 
+func OptPacketReference(id uuid.UUID) PacketOption {
+	return func(p *Packet) {
+		p.Reference = id
+	}
+}
+
 func OptPacketHeaderValue(k, v string) PacketOption {
 	return func(p *Packet) {
 		p.Header.Options.Add(k, v)

@@ -1,4 +1,4 @@
-package websockets
+package v1alpha1
 
 import (
 	"context"
@@ -8,6 +8,14 @@ import (
 
 	"github.com/blend/go-sdk/uuid"
 	"github.com/gorilla/websocket"
+
+	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
+	core "github.com/mat285/boardgames/pkg/core/v1alpha1"
+	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
+)
+
+var (
+	_ connection.ClientInfo = new(Client)
 )
 
 const (
@@ -25,14 +33,22 @@ const (
 )
 
 type Client struct {
-	ID uuid.UUID
-
-	Hub  *Hub
+	core.User
 	Conn *websocket.Conn
 
-	Handle PacketHandler
+	Handle connection.PacketHandler
 
-	outbound chan *Packet
+	outbound chan *wire.Packet
+}
+
+func NewClient(id uuid.UUID, username string, conn *websocket.Conn, handle connection.PacketHandler) *Client {
+	c := &Client{
+		User:     core.NewUser(id, username),
+		Conn:     conn,
+		Handle:   handle,
+		outbound: make(chan *wire.Packet, 10),
+	}
+	return c
 }
 
 func (c *Client) Start(ctx context.Context) {
@@ -40,19 +56,39 @@ func (c *Client) Start(ctx context.Context) {
 	go c.read(ctx)
 }
 
-func (c *Client) pushOutbound(packet *Packet) error {
+func (c *Client) Send(ctx context.Context, packet wire.Packet) (err error) {
+	defer func() {
+		e := recover()
+		if e != nil {
+			err = fmt.Errorf("Connection closed")
+		}
+	}()
 	if c.Conn == nil {
 		return fmt.Errorf("No connection")
 	}
-	c.outbound <- packet
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	default:
+	}
+	c.outbound <- &packet
 	return nil
+}
+
+func (c *Client) Stop(ctx context.Context) {
+	if c.Conn == nil {
+		return
+	}
+
+	c.Conn.Close()
+	c.Conn = nil
+
 }
 
 func (c *Client) write(ctx context.Context) {
 	ticker := time.NewTicker(pingPeriod)
 	defer func() {
 		ticker.Stop()
-		c.Hub.Unregister(c)
 		c.Conn.Close()
 	}()
 	for {
@@ -92,7 +128,6 @@ func (c *Client) write(ctx context.Context) {
 
 func (c *Client) read(ctx context.Context) {
 	defer func() {
-		c.Hub.Unregister(c)
 		c.Conn.Close()
 	}()
 
@@ -108,11 +143,15 @@ func (c *Client) read(ctx context.Context) {
 			}
 			break
 		}
-		packet, err := DeserializePacket(rawData)
+		packet, err := wire.DeserializePacket(rawData)
 		if err != nil {
 			_ = c.sendError(ctx, err)
 		}
-		err = c.Handle(ctx, packet)
+		if packet == nil {
+			// todo
+			continue
+		}
+		err = c.Handle(ctx, *packet)
 		if err != nil {
 			_ = c.sendError(ctx, err)
 		}

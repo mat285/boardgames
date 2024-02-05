@@ -16,6 +16,13 @@ type Pipe struct {
 	Receiver connection.Receiver
 }
 
+func PipeReceiver(id uuid.UUID, r connection.Receiver) connection.ServerInfo {
+	return &Pipe{
+		ID:       id,
+		Receiver: r,
+	}
+}
+
 func PipeEngine(e *engine.Engine) connection.ServerInfo {
 	return &Pipe{
 		ID:       e.ID,
