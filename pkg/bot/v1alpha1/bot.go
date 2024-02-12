@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	"context"
 
-	client "github.com/mat285/boardgames/pkg/client/v1alpha1"
+	client "github.com/mat285/boardgames/pkg/client/core/v1alpha1"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
 	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
@@ -12,7 +12,6 @@ import (
 
 type Bot struct {
 	client.Player
-	Client   connection.Client
 	Strategy Strategy
 }
 
@@ -24,7 +23,6 @@ func NewBot(username string, g game.Game, conn connection.Client, strategy Strat
 	b := &Bot{
 		Player:   *client.NewPlayer(username, g, conn),
 		Strategy: strategy,
-		Client:   conn,
 	}
 	return b
 }

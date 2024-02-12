@@ -14,7 +14,7 @@ import (
 	"github.com/blend/go-sdk/uuid"
 	splendor "github.com/mat285/boardgames/games/splendor/pkg/game"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
-	client "github.com/mat285/boardgames/pkg/client/v1alpha1"
+	client "github.com/mat285/boardgames/pkg/client/core/v1alpha1"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
 	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
