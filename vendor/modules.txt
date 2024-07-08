@@ -6,6 +6,7 @@ github.com/blend/go-sdk/bufferutil
 github.com/blend/go-sdk/configutil
 github.com/blend/go-sdk/env
 github.com/blend/go-sdk/ex
+github.com/blend/go-sdk/graceful
 github.com/blend/go-sdk/logger
 github.com/blend/go-sdk/mathutil
 github.com/blend/go-sdk/proxyprotocol
@@ -26,6 +27,15 @@ github.com/golang-jwt/jwt
 # github.com/gorilla/websocket v1.5.1
 ## explicit; go 1.20
 github.com/gorilla/websocket
+# github.com/inconshreveable/mousetrap v1.0.0
+## explicit
+github.com/inconshreveable/mousetrap
+# github.com/spf13/cobra v1.3.0
+## explicit; go 1.15
+github.com/spf13/cobra
+# github.com/spf13/pflag v1.0.5
+## explicit; go 1.12
+github.com/spf13/pflag
 # golang.org/x/net v0.17.0
 ## explicit; go 1.17
 golang.org/x/net/internal/socks

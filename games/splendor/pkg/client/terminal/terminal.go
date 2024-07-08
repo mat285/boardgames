@@ -15,6 +15,7 @@ import (
 	splendor "github.com/mat285/boardgames/games/splendor/pkg/game"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
 	client "github.com/mat285/boardgames/pkg/client/core/v1alpha1"
+	httpclient "github.com/mat285/boardgames/pkg/client/http/v1alpha1"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
 	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
@@ -25,6 +26,8 @@ var _ connection.Client = new(TerminalPlayer)
 
 type TerminalPlayer struct {
 	*client.Player
+
+	apiClient *httpclient.Client
 
 	State        splendor.State
 	NeedMove     bool
@@ -47,8 +50,19 @@ func NewTerminalPlayer(username string, g game.Game, conn connection.Client) *Te
 	return tp
 }
 
+func NewTerminalPlayerHTTP(username string, cli *httpclient.Client) *TerminalPlayer {
+	tp := &TerminalPlayer{
+		Player:      client.NewPlayer(username, nil, cli),
+		apiClient:   cli,
+		NeedMove:    false,
+		MoveChan:    make(chan game.Move),
+		LogMessages: make(chan string, 100),
+	}
+	return tp
+}
+
 func (p *TerminalPlayer) Start(ctx context.Context) error {
-	p.Client.Listen(ctx, p.Handle)
+	go p.Client.Listen(ctx, p.Handle)
 	go p.writeLogs(ctx)
 	for {
 		select {
@@ -64,6 +78,46 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 			continue
 		case "exit":
 			os.Exit(0)
+		case "new":
+			if p.apiClient == nil {
+				p.Println("not allowed without api client")
+				continue
+			}
+			gcfg := splendor.Config{VictoryPoints: 7}
+			gid, err := p.apiClient.NewGame(ctx, "splendor", gcfg)
+			if err != nil {
+				p.Println("Error making new game", err.Error)
+				continue
+			}
+			p.Println("Created new game with ID:", gid)
+			continue
+		case "join":
+			if p.apiClient == nil {
+				p.Println("not allowed without api client")
+				continue
+			}
+			if len(parts) != 2 {
+				p.Println("Need game id")
+				continue
+			}
+			gid, err := uuid.Parse(parts[1])
+			if err != nil {
+				p.Println("Error parsing game id", err.Error)
+				continue
+			}
+			err = p.apiClient.Join(ctx, gid)
+			if err != nil {
+				p.Println("Error joining game", gid, err.Error)
+				continue
+			}
+			// p.Player.Game =
+			p.Println("Joined game", gid)
+			err = p.apiClient.Start(ctx, gid)
+			if err != nil {
+				p.Println("Error starting game", gid, err.Error)
+				continue
+			}
+			p.Println("Started game", gid)
 		case "board":
 			if p.State.Players == nil {
 				p.Println("No active state")
