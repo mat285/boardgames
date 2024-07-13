@@ -89,16 +89,13 @@ func (w *WebsocketDialer) retryListen(ctx context.Context, handler connection.Pa
 }
 
 func (w *WebsocketDialer) Close(ctx context.Context) error {
-	fmt.Println("closing websocket")
 	if !w.listening {
 		return nil
 	}
 	err := w.Websocket.Close(ctx)
 	if err != nil {
-		fmt.Println("closed websocket", err)
 		return err
 	}
-	fmt.Println("closed websocket")
 	return nil
 }
 

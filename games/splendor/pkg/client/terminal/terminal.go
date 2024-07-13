@@ -623,7 +623,7 @@ func (p *Terminal) retryListen(ctx context.Context) {
 		p.apiClient.Connect(ctx, nil)
 		err := p.apiClient.Listen(ctx, p.Handle)
 		if err != nil {
-			fmt.Println("Error listening for websocket", err)
+			// fmt.Println("Error listening for websocket", err)
 		}
 		p.apiClient.Close(ctx)
 	}

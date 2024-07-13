@@ -116,7 +116,7 @@ func (s State) applyReserve(move CardMove) (State, bool, error) {
 	}
 	s.Board = s.Board.RemoveCard(move.Card)
 	hand = hand.Reserve(move.Card)
-	player.Hand = hand
+	s = s.setCurrentPlayerHand(hand)
 	return s, true, nil
 }
 

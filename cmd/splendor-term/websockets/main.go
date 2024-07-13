@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"os"
 	"strconv"
@@ -58,13 +57,20 @@ func Parse(addr string) (Address, error) {
 	}
 	addr = strings.TrimPrefix(addr, scheme+"://")
 	parts := strings.Split(addr, ":")
-	if len(parts) != 2 {
-		return Address{}, fmt.Errorf("invalid address")
-	}
 	host := parts[0]
+	if len(parts) != 2 {
+		return Address{Protocol: scheme, Host: host, Port: implicitPort(scheme)}, nil
+	}
 	port, err := strconv.ParseUint(parts[1], 10, 16)
 	if err != nil {
 		return Address{}, err
 	}
 	return Address{Protocol: scheme, Host: host, Port: uint16(port)}, nil
+}
+
+func implicitPort(scheme string) uint16 {
+	if scheme == "https" {
+		return 443
+	}
+	return 80
 }
