@@ -15,6 +15,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	splendorgame "github.com/mat285/boardgames/games/splendor"
+	splendorhttpclient "github.com/mat285/boardgames/games/splendor/pkg/client/http"
 	splendor "github.com/mat285/boardgames/games/splendor/pkg/game"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
 	httpclient "github.com/mat285/boardgames/pkg/client/http/v1alpha1"
@@ -49,7 +50,7 @@ func (p *Terminal) InitialModel() Model {
 	ta.Prompt = "> "
 	ta.CharLimit = 280
 
-	ta.SetWidth(90)
+	ta.SetWidth(140)
 	ta.SetHeight(1)
 
 	// Remove cursor line styling
@@ -60,7 +61,7 @@ func (p *Terminal) InitialModel() Model {
 	title := viewport.New(30, 2)
 	title.SetContent("Splendor Terminal Client\n")
 
-	view := viewport.New(90, 30)
+	view := viewport.New(140, 35)
 
 	ta.KeyMap.InsertNewline.SetEnabled(false)
 
@@ -118,6 +119,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			message := m.textarea.Value()
 			m.history = append(m.history, message)
 			result := m.Terminal.HandleMessage(m.Terminal.Ctx, message)
+			result = lipgloss.NewStyle().Width(120).Render(result)
 			m.view.SetContent(result)
 			m.textarea.Reset()
 			m.view.GotoBottom()
@@ -147,8 +149,8 @@ type Terminal struct {
 	Game    game.Game
 	Message messages.Provider
 
-	apiClient   *httpclient.Client
-	CurrentGame uuid.UUID
+	SplendorClient *splendorhttpclient.Client
+	CurrentGame    uuid.UUID
 
 	State   splendor.State
 	Packets chan wire.Packet
@@ -157,12 +159,11 @@ type Terminal struct {
 func NewTerminal(ctx context.Context, username string, cli *httpclient.Client) *Terminal {
 	g := splendorgame.NewGameWithConfig(splendor.Config{VictoryPoints: 7})
 	tp := &Terminal{
-		Ctx:     ctx,
-		Game:    g,
-		Message: messages.NewProvider(g),
-		// Player:    client.NewPlayer(username, g, cli),
-		apiClient: cli,
-		Packets:   make(chan wire.Packet, 10),
+		Ctx:            ctx,
+		Game:           g,
+		Message:        messages.NewProvider(g),
+		SplendorClient: splendorhttpclient.New(cli),
+		Packets:        make(chan wire.Packet, 10),
 	}
 	return tp
 }
@@ -180,27 +181,27 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 			result += fmt.Sprintln("need usernam")
 			return
 		}
-		p.apiClient.Username = parts[1]
-		p.apiClient.UserID = nil
-		err := p.apiClient.Login(ctx)
+		p.SplendorClient.Username = parts[1]
+		p.SplendorClient.UserID = nil
+		err := p.SplendorClient.Login(ctx)
 		if err != nil {
 			result += fmt.Sprintln("error logging in", err)
 			return
 		}
-		err = p.apiClient.Connect(ctx, nil)
+		err = p.SplendorClient.Connect(ctx, nil)
 		if err != nil {
 			result += fmt.Sprintln("error starting websocket", err)
 			return
 		}
 		go p.retryListen(ctx)
-		result += fmt.Sprintln("Successfully logged in as", p.apiClient.Username)
+		result += fmt.Sprintln("Successfully logged in as", p.SplendorClient.Username)
 		return
 	case "mine":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
-		games, err := p.apiClient.GetUserGames(ctx)
+		games, err := p.SplendorClient.GetUserGames(ctx)
 		if err != nil {
 			result += fmt.Sprintln("error getting user games", err)
 			return
@@ -210,20 +211,20 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		}
 		return
 	case "new":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
-		p.apiClient.Username = p.apiClient.Username
+		p.SplendorClient.Username = p.SplendorClient.Username
 		gcfg := splendor.Config{VictoryPoints: 7}
-		gid, err := p.apiClient.NewGame(ctx, "splendor", gcfg)
+		gid, err := p.SplendorClient.NewGame(ctx, "splendor", gcfg)
 		if err != nil {
 			result += fmt.Sprintln("Error making new game", err.Error)
 			return
 		}
 		result += fmt.Sprintln("Created new game with ID:", gid)
 		p.CurrentGame = gid
-		err = p.apiClient.Join(ctx, gid)
+		err = p.SplendorClient.Join(ctx, gid)
 		if err != nil {
 			result += fmt.Sprintln("Error joining game", gid, err.Error)
 			return
@@ -231,7 +232,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		result += fmt.Sprintln("Joined game", gid)
 		return
 	case "join":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -245,7 +246,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 			return
 		}
 		p.CurrentGame = gid
-		err = p.apiClient.Join(ctx, gid)
+		err = p.SplendorClient.Join(ctx, gid)
 		if err != nil {
 			result += fmt.Sprintln("Error joining game", gid, err.Error)
 			return
@@ -253,7 +254,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		result += fmt.Sprintln("Joined game", gid)
 		return
 	case "play":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -270,7 +271,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		result += fmt.Sprintln("switched to game room", gid)
 		return
 	case "start":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -288,7 +289,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 			return
 		}
 
-		err := p.apiClient.Start(ctx, gid)
+		err := p.SplendorClient.Start(ctx, gid)
 		if err != nil {
 			result += fmt.Sprintln("Error starting game", gid, err.Error)
 			return
@@ -306,7 +307,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		}
 		return
 	case "board":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -323,7 +324,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		}
 		return
 	case "players":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -340,7 +341,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		}
 		return
 	case "player":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -365,7 +366,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		result += fmt.Sprintln(prettyJSON(player.Hand))
 		return
 	case "hand":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -385,7 +386,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		result += fmt.Sprintln(prettyJSON(hand))
 		return
 	case "gems":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -405,7 +406,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		result += fmt.Sprintln(prettyJSON(hand.Gems.Add(hand.CardCounts())))
 		return
 	case "cards":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -424,8 +425,8 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		hand := player.Hand
 		result += fmt.Sprintln(prettyJSON(hand.Cards))
 		return
-	case "reserve", "purchase":
-		if p.apiClient.UserID.IsZero() {
+	case "reserve", "purchase", "buy":
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -464,8 +465,8 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		result += fmt.Sprintln("Made move\n", prettyJSON(move))
 		return
 
-	case "collect":
-		if p.apiClient.UserID.IsZero() {
+	case "collect", "take":
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -498,7 +499,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 		return
 
 	case "moves":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -520,7 +521,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 			result += moveString(i, move)
 		}
 	case "move":
-		if p.apiClient.UserID.IsZero() {
+		if p.SplendorClient.UserID.IsZero() {
 			result += fmt.Sprintln("please login first")
 			return
 		}
@@ -565,25 +566,26 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 }
 
 func (p *Terminal) maybeFetchState(ctx context.Context) error {
-	if p.apiClient == nil {
+	if p.SplendorClient == nil {
 		return nil
 	}
-	packet, err := p.apiClient.GetState(ctx, p.CurrentGame)
+	state, err := p.SplendorClient.GetState(ctx, p.CurrentGame)
 	if err != nil {
 		return err
 	}
-	state, err := p.Game.DeserializeState(&game.SerializedObject{
-		ID:   p.CurrentGame,
-		Data: packet.Payload,
-	})
-	if err != nil {
-		return err
-	}
-	typed, ok := state.(splendor.State)
-	if !ok {
-		return fmt.Errorf("Wrong game")
-	}
-	p.State = typed
+	p.State = *state
+	// state, err := p.Game.DeserializeState(&game.SerializedObject{
+	// 	ID:   p.CurrentGame,
+	// 	Data: packet.Payload,
+	// })
+	// if err != nil {
+	// 	return err
+	// }
+	// typed, ok := state.(splendor.State)
+	// if !ok {
+	// 	return fmt.Errorf("Wrong game")
+	// }
+	// p.State = typed
 	return nil
 }
 
@@ -599,14 +601,14 @@ func (p *Terminal) sendMove(ctx context.Context, move game.Move) error {
 }
 
 func (p *Terminal) maybeSendMove(ctx context.Context, move game.Move) (bool, error) {
-	if p.apiClient == nil {
+	if p.SplendorClient == nil {
 		return false, nil
 	}
-	packet, err := p.Message.MessagePlayerMove(move, p.apiClient.UserID)
+	packet, err := p.Message.MessagePlayerMove(move, p.SplendorClient.UserID)
 	if err != nil {
 		return false, err
 	}
-	_, err = p.apiClient.SendPacket(ctx, p.CurrentGame, p.apiClient.UserID, *packet)
+	_, err = p.SplendorClient.SendPacket(ctx, p.CurrentGame, p.SplendorClient.UserID, *packet)
 	if err != nil {
 		return false, err
 	}
@@ -620,12 +622,12 @@ func (p *Terminal) retryListen(ctx context.Context) {
 			return
 		default:
 		}
-		p.apiClient.Connect(ctx, nil)
-		err := p.apiClient.Listen(ctx, p.Handle)
+		p.SplendorClient.Connect(ctx, nil)
+		err := p.SplendorClient.Listen(ctx, p.Handle)
 		if err != nil {
 			// fmt.Println("Error listening for websocket", err)
 		}
-		p.apiClient.Close(ctx)
+		p.SplendorClient.Close(ctx)
 		time.Sleep(time.Second * 10)
 	}
 }

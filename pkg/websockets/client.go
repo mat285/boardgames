@@ -92,11 +92,8 @@ func (c *Client) Start(ctx context.Context) error {
 		c.lock.Unlock()
 		return fmt.Errorf("already running ws client")
 	}
-	if c.stopped {
-		c.lock.Unlock()
-		return fmt.Errorf("cannot restart failed client")
-	}
 	if c.conn == nil {
+		c.lock.Unlock()
 		return fmt.Errorf("no websocket connection")
 	}
 	logger.MaybeDebugfContext(ctx, log, "Starting websockets client")
@@ -243,10 +240,10 @@ func (c *Client) read(ctx context.Context) error {
 		return fmt.Errorf("no connection open to read")
 	}
 
-	conn.SetPongHandler(func(string) error {
-		c.conn.SetReadDeadline(time.Now().Add(pongWait))
-		return nil
-	})
+	// conn.SetPongHandler(func(string) error {
+	// 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	// 	return nil
+	// })
 
 	for {
 		// check ctx first then fall through
