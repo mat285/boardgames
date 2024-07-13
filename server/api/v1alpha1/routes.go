@@ -7,6 +7,22 @@ import (
 
 const (
 	RouteBase = "/api/" + apiversions.V1Alpha1
+
+	RouteRegistry = RouteBase + "/registry"
+
+	RouteUserBase  = RouteBase + "/user"
+	RouteUserLogin = RouteUserBase + "/login"
+	RouteUserGames = RouteUserBase + "/games"
+
+	RouteGameBase   = RouteBase + "/game"
+	RouteGamesBase  = RouteBase + "/games"
+	RouteNewGame    = RouteGamesBase + "/:name/new"
+	RouteJoinGame   = RouteGameBase + "/:id/join"
+	RouteStartGame  = RouteGameBase + "/:id/start"
+	RouteGameState  = RouteGameBase + "/:id/state"
+	RouteGamePacket = RouteGameBase + "/:id/packet"
+
+	RouteWebSockets = RouteBase + "/websockets"
 )
 
 const (

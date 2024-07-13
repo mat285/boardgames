@@ -1,0 +1,35 @@
+@import './Variables';
+
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: $purple;
+  padding: $large_spacing;
+  border-radius: 32px;
+  color: $white;
+  font-weight: bold;
+  user-select: none;
+  cursor: pointer;
+  transition: background $short_duration, opacity $short_duration !important;
+
+  .buttonText {
+    line-height: 1em;
+    color: $white;
+    text-align: center;
+  }
+
+  &:hover {
+    background: lighten($purple, 5%);
+  }
+
+  &.small {
+    padding: $medium_spacing;
+    border-radius: 24px;
+  }
+
+  &.disabled {
+    pointer-events: none;
+    opacity: 0.5;
+  }
+}

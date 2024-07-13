@@ -1,0 +1,243 @@
+@import './Variables';
+
+.dashboard {
+  display: flex;
+  height: 100vh;
+  background: $purple;
+  color: transparentize($white, 0.1);
+
+  .headerText {
+    font-size: 2rem;
+    line-height: 1em;
+    margin-bottom: $small_spacing;
+  }
+
+  .subHeaderText {
+    font-size: 1.4rem;
+    line-height: 1em;
+    margin-bottom: $large_spacing;
+  }
+
+  input[type='text'] {
+    font-size: 1rem;
+    font-family: inherit;
+    margin: 0;
+    appearance: textfield;
+    padding: 0 $medium_spacing;
+    height: 42px;
+    border-radius: 21px;
+    border: none;
+    background: transparentize($white, 0.85);
+    color: $white;
+    -moz-appearance: textfield;
+
+    &::placeholder { color: transparentize($white, 0.6); }
+    &:focus {
+      outline: none;
+      background: transparentize($white, 0.75);
+    }
+  }
+
+  .chatApp {
+    background: darken($purplegray, 10%);
+    margin: $xlarge_spacing;
+    box-shadow: $standard_box_shadow;
+    border-radius: $standard_border_radius;
+    overflow: hidden;
+    display: flex;
+    width: 100%;
+
+    .actions {
+      width: 68px;
+      display: flex;
+      flex-direction: column;
+      border-right: $dashboard_border;
+      user-select: none;
+
+      .menu {
+        display: none;
+        cursor: pointer;
+      }
+
+      .logo,
+      .actionFooter {
+        padding: $medium_spacing;
+        height: 78px;
+      }
+
+      .actionButtons {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+
+        .action {
+          padding: 12px $medium_spacing;
+          opacity: 0.6;
+          cursor: pointer;
+          display: block;
+
+          &:hover {
+            opacity: 0.8;
+          }
+        }
+      }
+    }
+
+    .conversationList {
+      background: $purplegray;
+      min-width: 360px;
+      width: 360px;
+      border-right: $dashboard_border;
+      user-select: none;
+      overflow-y: auto;
+
+      .listHeader {
+        display: flex;
+        padding: $large_spacing $medium_spacing;
+        font-size: 1.4rem;
+        font-weight: bold;
+        align-items: center;
+
+        .searchContainer {
+          flex: 1;
+
+          input[type=text] {
+            width: 100%;
+            color: $white;
+            transition: background $short_duration;
+          }
+        }
+
+        .listHeaderAction {
+          height: 24px;
+          margin-left: $medium_spacing;
+
+          svg {
+            width: 24px;
+            height: 24px;
+            fill: $purple;
+            transition: fill $short_duration;
+          }
+
+          &:hover svg {
+            fill: lighten($purple, 5%);
+          }
+        }
+        .listHeaderAction svg {
+          width: 24px;
+          height: 24px;
+          fill: $purple;
+        }
+      }
+
+      .noMessagesContractor {
+        padding: 0 $medium_spacing;
+        text-align: center;
+        opacity: 0.5;
+      }
+
+      .spinnerContainer {
+        height: calc(100% - 90px);
+        padding-bottom: 90px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .noConversations {
+        background: $purple;
+        border-radius: $standard_border_radius;
+        padding: $medium_spacing;
+        margin: 0 $medium_spacing;
+        height: 92px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        transition: background $short_duration;
+
+        svg {
+          fill: $white;
+          width: 24px;
+          height: 24px;
+        }
+
+        &:hover {
+          background: lighten($purple, 5%);
+        }
+      }
+    }
+  }
+
+  .contentContainer {
+    flex: 1;
+    margin-left: 0;
+  }
+
+  @include responsive('<', 1000px) {
+    .chatApp {
+      flex-direction: column;
+      margin: 0;
+      border-radius: 0;
+      height: 100%;
+
+      .actions {
+        order: 99;
+        width: 100%;
+        flex-direction: row;
+        border-right: none;
+        border-top: $dashboard_border;
+        padding: $medium_spacing;
+        height: 72px;
+
+        .menu {
+          display: block;
+          width: 48px;
+          img { height: 100%; }
+        }
+
+        .actionFooter {
+          display: none;
+        }
+
+        .logo {
+          width: 48px;
+          height: auto;
+          padding: 0;
+          order: 99;
+          img { height: 100%; }
+        }
+
+        .actionButtons {
+          flex-direction: row;
+          align-items: center;
+
+          .action {
+            width: 64px;
+            height: 100%;
+            padding: 0;
+            img { height: 100%; }
+          }
+        }
+      }
+
+      .contentContainer {
+        min-height: 0;
+      }
+
+      .conversationList {
+        position: fixed;
+        z-index: 999;
+        top: 0;
+        bottom: 73px;
+        width: 100%;
+        left: -100%;
+        transition: left $short_duration;
+
+        &.open {
+          left: 0;
+        }
+      }
+    }
+  }
+}

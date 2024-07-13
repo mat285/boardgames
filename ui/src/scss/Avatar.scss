@@ -1,0 +1,25 @@
+@import './Variables';
+
+.avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 1.4rem;
+  line-height: 0em;
+  background-color: $lightgray;
+  background-size: cover;
+  background-position: center;
+  position: relative;
+  user-select: none;
+
+  &.large {
+    width: 180px;
+    height: 180px;
+    border: 8px solid $purple;
+    font-size: 4rem;
+  }
+}

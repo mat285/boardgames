@@ -1,0 +1,69 @@
+@import './Variables';
+
+.inputWithLabel {
+  padding-top: $medium_spacing;
+  margin: $medium_spacing 0;
+  position: relative;
+
+  input[type=text],
+  input[type=email],
+  input[type=password],
+  input[type=number] {
+    height: 48px;
+    color: $darkgray;
+    font-size: 1rem;
+    border-radius: 0;
+    padding: $medium_spacing 0;
+    border: none;
+    border-bottom: 1px solid $lightgray;
+    width: 100%;
+    font-family: inherit;
+    transition: border $short_duration;
+
+    &:focus {
+      outline: none;
+      border-color: $purple;
+    }
+  }
+
+  .label {
+    @include cover();
+    top: calc(50% - 0.3em);
+    opacity: 0.7;
+    pointer-events: none;
+    transition: top $short_duration, opacity $short_duration, font-size $short_duration, color $short_duration;
+  }
+
+  &.focused,
+  &.filled,
+  &.error {
+    .label {
+      top: 0 !important;
+      font-size: 0.8rem;
+    }
+  }
+
+  &.focused {
+    .label {
+      opacity: 1;
+      color: $purple;
+    }
+  }
+
+  &.filled:not(.focused):not(.error) {
+    .label {
+      opacity: 0.5;
+    }
+  }
+
+  &.error {
+    .label {
+      color: $red;
+      opacity: 1;
+    }
+
+    input, input:focus {
+      border-color: $red;
+    }
+  }
+}

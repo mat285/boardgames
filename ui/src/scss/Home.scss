@@ -1,0 +1,215 @@
+@import './Variables';
+
+.home {
+  .hero {
+    height: 100vh;
+    margin-top: -$header_height;
+    max-height: 800px;
+    background: linear-gradient(to right, $pink 30%, $blue);
+    position: relative;
+    overflow: hidden;
+    user-select: none;
+
+    .heroText {
+      @include cover();
+      padding-top: $header_height;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      padding-left: 40%;
+      font-weight: bold;
+      text-align: center;
+
+      .mainTitle {
+        font-size: 5.4rem;
+        line-height: 1em;
+        opacity: 0;
+        transition: opacity $long_duration;
+
+        &.show { opacity: 1; }
+      }
+
+      .subTitle {
+        font-size: 2rem;
+        line-height: 1.4em;
+
+        span {
+          opacity: 0;
+          transition: opacity $long_duration;
+        }
+
+        .showIt.show { opacity: 0.8; }
+        .seeIt.show { opacity: 0.6; }
+      }
+    }
+
+    .heroImageContainer {
+      @include cover();
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      pointer-events: none;
+
+      img {
+        min-width: 105%;
+        width: 105%;
+        height: 105%;
+        object-fit: cover;
+        pointer-events: none;
+      }
+    }
+  }
+
+  .section {
+    padding: $xlarge_spacing * 2 $xlarge_spacing;
+    font-size: 1.4rem;
+    line-height: 1.4em;
+
+    .sectionHeader {
+      text-align: center;
+
+      .subTitle {
+        font-size: 1.4rem;
+        margin-top: -0.8rem;
+      }
+    }
+
+    .flexSection {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+
+      .textContainer {
+        flex: 1;
+        max-width: 600px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+
+        p:last-child {
+          margin-bottom: 0;
+        }
+
+        .button {
+          font-size: 1rem;
+          margin: $medium_spacing 0;
+        }
+      }
+
+      .imageContainer {
+        flex: 1;
+        max-width: 600px;
+        pointer-events: none;
+      }
+
+      .flexSectionContent:first-child { margin-right: $medium_spacing; }
+      .flexSectionContent:last-child { margin-left: $medium_spacing; }
+    }
+
+    &.guide {
+      background: linear-gradient(to top right, $purple 30%, $blue);
+      background-attachment: fixed;
+
+      h1 {
+        padding-bottom: $large_spacing;
+        color: $white;
+      }
+
+      .guideCard {
+        width: 100%;
+        max-width: 800px;
+        margin: $large_spacing auto;
+        background: $white;
+        box-shadow: $standard_box_shadow;
+        padding: $large_spacing;
+        border-radius: $standard_border_radius;
+        display: flex;
+        align-items: center;
+        height: 200px;
+
+        .cardImage {
+          flex: 0.2;
+          margin-right: $large_spacing;
+          transition: transform $short_duration;
+
+          svg {
+            fill: $purple;
+          }
+        }
+
+        .cardText {
+          flex: 1;
+
+          p {
+            margin-bottom: 0;
+          }
+        }
+
+        &:hover {
+          .cardImage {
+            transform: rotate(15deg);
+          }
+        }
+      }
+
+      a.button {
+        background: $white;
+        margin-top: $medium_spacing;
+        max-width: 800px;
+        margin: auto;
+        box-shadow: $standard_box_shadow;
+        border-radius: $standard_border_radius;
+        transition: transform $short_duration !important;
+
+        .buttonText {
+          color: $purple;
+        }
+
+        &:hover {
+          transform: scale(1.05);
+        }
+      }
+    }
+  }
+
+  @include responsive('<', 1000px) {
+    .hero .heroText {
+      padding: 0;
+      padding-top: 24vh;
+      justify-content: flex-start;
+
+      .mainTitle {
+        font-size: 4rem;
+      }
+
+      .subTitle {
+        font-size: 1.4rem;
+      }
+    }
+
+    .section .flexSection {
+      flex-direction: column;
+
+      .flexSectionContent {
+        margin: 0 !important;
+      }
+
+      .imageContainer {
+        order: 0;
+        width: 100%;
+        margin-bottom: $large_spacing !important;
+      }
+
+      .textContainer {
+        order: 1;
+      }
+    }
+
+    .section.guide {
+      .guideCard {
+        height: auto;
+      }
+    }
+  }
+}

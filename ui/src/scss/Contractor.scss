@@ -1,0 +1,53 @@
+@import './Variables';
+
+.contractor {
+  background: $purplegray;
+  width: 100%;
+  max-width: 240px;
+  border-radius: $standard_border_radius;
+  overflow: hidden;
+  margin: $medium_spacing;
+  cursor: pointer;
+
+  .imageContainer {
+    padding-bottom: 80%;
+    position: relative;
+    overflow: hidden;
+
+    img {
+      @include cover();
+      object-fit: cover;
+      transition: transform $short_duration;
+    }
+  }
+
+  .contractorInfo {
+    padding: $medium_spacing;
+
+    div {
+      line-height: 1.2em;
+    }
+
+    .contractorName {
+      font-size: 1.4rem;
+      font-weight: bold;
+    }
+
+    .contractorAge {
+      color: $purple;
+      font-weight: bold;
+    }
+
+    .contractorLocation {
+      opacity: 0.6;
+    }
+  }
+
+  &:hover {
+    background: lighten($purplegray, 5%);
+
+    .imageContainer img {
+      transform: scale(1.05);
+    }
+  }
+}

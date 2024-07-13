@@ -48,7 +48,8 @@ func (s *Server) Login(r *web.Ctx) web.Result {
 		return web.JSON.BadRequest(fmt.Errorf("missing username"))
 	}
 	id := s.GetOrSetUserID(p.Username)
-	return web.JSON.Result(id)
+	p.ID = id
+	return web.JSON.Result(p)
 }
 
 func (s *Server) NewGame(r *web.Ctx) web.Result {

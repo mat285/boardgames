@@ -69,7 +69,12 @@ func (c *Client) Login(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.JSON(ctx, req, &c.UserID)
+	err = c.JSON(ctx, req, &body)
+	if err != nil {
+		return err
+	}
+	c.UserID = body.ID
+	return nil
 }
 
 func (c *Client) GetUserGames(ctx context.Context) ([]server.UserGame, error) {

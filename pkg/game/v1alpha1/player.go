@@ -5,8 +5,8 @@ import (
 )
 
 type Player struct {
-	ID       uuid.UUID
-	Username string
+	ID       uuid.UUID `json:"id"`
+	Username string    `json:"username"`
 }
 
 func (p Player) GetID() uuid.UUID {

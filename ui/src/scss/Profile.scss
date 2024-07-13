@@ -1,0 +1,130 @@
+@import './Variables';
+
+.profile {
+  height: 100%;
+  position: relative;
+
+  .spinnerContainer {
+    @include cover();
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .profileContainer {
+    @include cover();
+
+    .topBackground {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 20%;
+      background: linear-gradient(to top right, $blue, $pink);
+    }
+
+    .avatarContainer {
+      position: absolute;
+      left: 0;
+      right: 0;
+      width: 180px;
+      height: 180px;
+      top: calc(20% - 90px);
+      margin: auto;
+      z-index: 1;
+
+      .fileUpload {
+        background: $purple;
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        bottom: 8px;
+        right: 8px;
+        cursor: pointer;
+        transition: background $short_duration;
+
+        input[type=file] { display: none; }
+        svg {
+          fill: $white;
+          height: 24px;
+          width: 24px;
+        }
+
+        &:hover { background: lighten($purple, 5%); }
+        &.hasFile { background: $green; }
+        &.hasFile:hover { background: lighten($green, 5%); }
+      }
+    }
+
+    .profileContent {
+      position: absolute;
+      top: 20%;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding-top: 90px; // avatar height
+
+      .displayName {
+        text-align: center;
+        font-size: 2rem;
+        font-weight: bold;
+        margin-top: $small_spacing;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 42px;
+
+        svg {
+          width: 28px;
+          height: 28px;
+          margin-left: $small_spacing;
+          fill: $purple;
+          cursor: pointer;
+
+          &:hover {
+            fill: lighten($purple, 5%);
+          }
+        }
+      }
+
+      .extraInfo {
+        max-width: 320px;
+        margin: auto;
+        margin-top: $large_spacing;
+
+        .inputRow {
+          display: flex;
+
+          .inputWithLabel { flex: 1; }
+          .inputWithLabel:first-child { margin-right: $medium_spacing / 2; }
+          .inputWithLabel:last-child { margin-left: $medium_spacing / 2; }
+        }
+
+        .inputWithLabel {
+          display: block;
+          margin-top: $medium_spacing;
+          width: 100%;
+
+          input {
+            background: none;
+            color: $white;
+          }
+        }
+
+        .buttonContainer {
+          margin-top: $large_spacing;
+
+          &.success {
+            .button {
+              background: $green;
+            }
+          }
+        }
+      }
+    }
+  }
+}
