@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"log"
 
 	"github.com/mat285/boardgames/games/splendor/pkg/client/terminal"
 	client "github.com/mat285/boardgames/pkg/client/http/v1alpha1"
@@ -21,10 +21,8 @@ func main() {
 		client.OptUsername("michael"),
 	)
 
-	term := terminal.NewTerminalPlayerHTTP("michael", cli)
-	err := term.Start(ctx)
-	if err != nil {
-		fmt.Println(err)
+	term := terminal.NewTerminal(ctx, "michael", cli)
+	if err := term.Start(); err != nil {
+		log.Fatal(err)
 	}
-
 }

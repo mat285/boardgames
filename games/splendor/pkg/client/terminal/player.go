@@ -1,0 +1,524 @@
+package terminal
+
+import (
+	"bufio"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/blend/go-sdk/uuid"
+	splendorgame "github.com/mat285/boardgames/games/splendor"
+	splendor "github.com/mat285/boardgames/games/splendor/pkg/game"
+	"github.com/mat285/boardgames/games/splendor/pkg/items"
+	client "github.com/mat285/boardgames/pkg/client/core/v1alpha1"
+	httpclient "github.com/mat285/boardgames/pkg/client/http/v1alpha1"
+	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
+	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
+	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
+	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
+)
+
+type TerminalPlayer struct {
+	*client.Player
+
+	apiClient *httpclient.Client
+	gid       uuid.UUID
+
+	State        splendor.State
+	NeedMove     bool
+	NeedMoveLock sync.Mutex
+	MoveChan     chan game.Move
+
+	LogMessages chan string
+
+	logPause bool
+	logLock  sync.Mutex
+}
+
+func NewTerminalPlayer(username string, g game.Game, conn connection.Client) *TerminalPlayer {
+	tp := &TerminalPlayer{
+		Player:      client.NewPlayer(username, g, conn),
+		NeedMove:    false,
+		MoveChan:    make(chan game.Move),
+		LogMessages: make(chan string, 100),
+	}
+	return tp
+}
+
+func NewTerminalPlayerHTTP(username string, cli *httpclient.Client) *TerminalPlayer {
+	tp := &TerminalPlayer{
+		Player:      client.NewPlayer(username, nil, cli),
+		apiClient:   cli,
+		NeedMove:    false,
+		MoveChan:    make(chan game.Move),
+		LogMessages: make(chan string, 100),
+	}
+	return tp
+}
+
+func (p *TerminalPlayer) Start(ctx context.Context) error {
+	// if p.apiClient == nil {
+	go p.retryListen(ctx)
+	// }
+	go p.writeLogs(ctx)
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+		entry := p.Prompt("\n>")
+		parts := strings.Split(entry, " ")
+		cmd := parts[0]
+		switch cmd {
+		case "":
+			continue
+		case "exit":
+			os.Exit(0)
+		case "new":
+			if p.apiClient == nil {
+				p.Println("not allowed without api client")
+				continue
+			}
+			p.apiClient.Username = p.Username
+			gcfg := splendor.Config{VictoryPoints: 7}
+			gid, err := p.apiClient.NewGame(ctx, "splendor", gcfg)
+			if err != nil {
+				p.Println("Error making new game", err.Error)
+				continue
+			}
+			p.Println("Created new game with ID:", gid)
+			p.gid = gid
+			p.Game = splendorgame.NewGameWithConfig(gcfg)
+			p.Player.Game = p.Game
+			p.Player.Message = messages.NewProvider(p.Game)
+			// go p.retryListen(ctx)
+			time.Sleep(time.Millisecond)
+			err = p.apiClient.Join(ctx, gid)
+			if err != nil {
+				p.Println("Error joining game", gid, err.Error)
+				continue
+			}
+			// p.Player.Game =
+			p.Println("Joined game", gid)
+			err = p.apiClient.Start(ctx, gid)
+			if err != nil {
+				p.Println("Error starting game", gid, err.Error)
+				continue
+			}
+
+			p.Println("Started game", gid)
+		case "board":
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+			for _, card := range p.State.Board.AvailableCards() {
+				p.Println(jsonMarshal(card))
+			}
+		case "players":
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+			for i, player := range p.State.Players {
+				p.Println(i, player.ID, jsonMarshal(player.Hand))
+			}
+		case "player":
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+			if len(parts) != 2 {
+				p.Println("Need player index")
+				continue
+			}
+			num, err := strconv.Atoi(parts[1])
+			if err != nil {
+				p.Println(err)
+				continue
+			}
+			player := p.State.Players[num]
+			p.Println(prettyJSON(player.Hand))
+		case "hand":
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+			player, err := p.State.GetCurrentPlayer()
+			if err != nil {
+				p.Println(err)
+			}
+			hand := player.Hand
+			p.Println(prettyJSON(hand))
+		case "gems":
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+			player, err := p.State.GetCurrentPlayer()
+			if err != nil {
+				p.Println(err)
+			}
+			hand := player.Hand
+			p.Println(prettyJSON(hand.Gems.Add(hand.CardCounts())))
+		case "cards":
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+			player, err := p.State.GetCurrentPlayer()
+			if err != nil {
+				p.Println(err)
+			}
+			hand := player.Hand
+			p.Println(prettyJSON(hand.Cards))
+		case "reserve", "purchase":
+			if len(parts) != 2 {
+				p.Println("Need card id")
+				continue
+			}
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+			if !p.NeedMove {
+				p.Println("not waiting for move")
+				continue
+			}
+			num, err := strconv.Atoi(parts[1])
+			if err != nil {
+				p.Println(err)
+				continue
+			}
+			card := items.Cards()[num]
+			cm := &splendor.CardMove{Card: card}
+			mv := &splendor.Move{}
+			if cmd == "reserve" {
+				mv.Reserve = cm
+			} else {
+				mv.Purchase = cm
+			}
+
+			made, err := p.maybeSendMove(ctx, mv)
+			if err != nil {
+				p.Println("Error sending move", err)
+				continue
+			}
+			if made {
+				p.Println("Made move")
+				continue
+			}
+			p.MoveChan <- mv
+
+		case "collect":
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+			if !p.NeedMove {
+				p.Println("not waiting for move")
+				continue
+			}
+			take, ret, err := parseGems(parts[1:])
+			if err != nil {
+				p.Println(err)
+				continue
+			}
+			if take.Wild > 0 {
+				p.Println("Cannot take wilds")
+				continue
+			}
+			move := &splendor.Move{Collect: &splendor.CollectMove{Take: take, Return: ret}}
+
+			made, err := p.maybeSendMove(ctx, move)
+			if err != nil {
+				p.Println("Error sending move", err)
+				continue
+			}
+			if made {
+				p.Println("Made move")
+				continue
+			}
+			p.MoveChan <- move
+			continue
+		case "moves":
+			if err := p.maybeFetchState(ctx); err != nil {
+				p.Println("error fetching state", err)
+				continue
+			}
+			if p.State.Players == nil {
+				p.Println("No active state")
+				continue
+			}
+
+			moves, err := p.State.ValidMoves()
+			if err != nil {
+				p.Println(err)
+				continue
+			}
+			for i, move := range moves {
+				err = p.PrintMove(i, move)
+				if err != nil {
+					p.Println(err)
+				}
+			}
+			if !p.NeedMove {
+				p.Println("not waiting for move")
+				continue
+			}
+			num, err := p.PollForInput()
+			if err != nil {
+				p.Println(err)
+				continue
+			}
+			move := moves[num]
+			made, err := p.maybeSendMove(ctx, move)
+			if err != nil {
+				p.Println("Error sending move", err)
+				continue
+			}
+			if made {
+				p.Println("Made move")
+				continue
+			}
+			p.MoveChan <- move
+
+		default:
+			p.Println("Commands: board hand gems cards moves exit\n")
+		}
+	}
+
+}
+
+func (p *TerminalPlayer) maybeFetchState(ctx context.Context) error {
+	if p.apiClient == nil {
+		return nil
+	}
+	p.NeedMoveLock.Lock()
+	defer p.NeedMoveLock.Unlock()
+	packet, err := p.apiClient.GetState(ctx, p.gid)
+	if err != nil {
+		fmt.Println(string(packet.Payload))
+		return err
+	}
+	// fmt.Println("fetch state packet", string(packet.MustJSON()))
+	state, err := p.Game.DeserializeState(&game.SerializedObject{
+		ID:   p.gid,
+		Data: packet.Payload,
+	})
+	// state, err := p.Message.ExtractState(*packet)
+	if err != nil {
+		return err
+	}
+	typed, ok := state.(splendor.State)
+	if !ok {
+		return fmt.Errorf("Wrong game")
+	}
+	p.State = typed
+	cid, _ := p.State.CurrentPlayer()
+	if cid.Equal(p.apiClient.UserID) {
+		p.NeedMove = true
+	}
+	return nil
+}
+
+func (p *TerminalPlayer) maybeSendMove(ctx context.Context, move game.Move) (bool, error) {
+	if p.apiClient == nil {
+		return false, nil
+	}
+	packet, err := p.Message.MessagePlayerMove(move, p.apiClient.UserID)
+	if err != nil {
+		return false, err
+	}
+	_, err = p.apiClient.MakeMove(ctx, p.gid, p.apiClient.UserID, *packet)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (p *TerminalPlayer) retryListen(ctx context.Context) {
+	for {
+		player := p.Player
+		if player == nil {
+			time.Sleep(time.Second * 2)
+			continue
+		}
+		player.Listen(ctx, p.Handle)
+	}
+}
+
+func (p *TerminalPlayer) Handle(ctx context.Context, packet wire.Packet) error {
+	fmt.Println("got inbound packet from server")
+	switch packet.Type {
+	case messages.PacketTypeRequestMove:
+		state, err := p.Message.ExtractState(packet)
+		if err != nil {
+			return err
+		}
+		go p.Request(ctx, state, packet.ID)
+		return nil
+	case messages.PacketTypePlayerMoveInfo:
+		var so game.SerializedObject
+		json.Unmarshal(packet.Payload, &so)
+		fmt.Println(packet.Type, string(so.Data))
+		info, err := p.Message.ExtractPlayerMoveInfo(packet)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Got player move info", string(info.Move.Data))
+	}
+	p.Println(fmt.Sprintf("\nMessage from game server:%s\n", string(packet.Payload)))
+	return nil
+}
+
+func (p *TerminalPlayer) Request(ctx context.Context, state game.StateData, req uuid.UUID) error {
+	typed, ok := state.(splendor.State)
+	if !ok {
+		return fmt.Errorf("Wrong game")
+	}
+	p.NeedMoveLock.Lock()
+	p.State = typed
+	p.NeedMove = true
+	p.NeedMoveLock.Unlock()
+
+	p.Println("\nRequest for next move from game server!\n")
+
+	move := <-p.MoveChan
+	p.NeedMoveLock.Lock()
+	p.NeedMove = false
+	p.NeedMoveLock.Unlock()
+	packet, err := p.Message.MessagePlayerMove(move, req)
+	if err != nil {
+		return err
+	}
+	return p.Client.Send(ctx, *packet)
+}
+
+func (p *TerminalPlayer) PrintMove(i int, move game.Move) error {
+	data, err := json.Marshal(move)
+	if err != nil {
+		return err
+	}
+	p.Println(i, string(data))
+	return nil
+}
+
+func (p *TerminalPlayer) Println(vs ...interface{}) {
+	if len(vs) == 0 {
+		return
+	}
+	ss := make([]string, len(vs))
+	for i := range vs {
+		ss[i] = fmt.Sprintf("%v", vs[i])
+	}
+	msg := strings.Join(ss, " ") + "\n"
+	fmt.Printf(msg)
+}
+
+func (p *TerminalPlayer) Printf(format string, args ...interface{}) {
+	p.LogMessages <- fmt.Sprintf(format, args...)
+}
+
+func (p *TerminalPlayer) drain() {
+	for len(p.LogMessages) > 0 {
+		msg := <-p.LogMessages
+		fmt.Printf(msg)
+	}
+}
+
+func (p *TerminalPlayer) pauseLogs() {
+	if p.logPause {
+		return
+	}
+	p.logLock.Lock()
+	p.logPause = true
+}
+
+func (p *TerminalPlayer) resumeLogs() {
+	if !p.logPause {
+		return
+	}
+	p.logPause = false
+	p.logLock.Unlock()
+}
+
+func (p *TerminalPlayer) writeLogs(ctx context.Context) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case msg := <-p.LogMessages:
+			if p.logPause {
+				p.logLock.Lock()
+				fmt.Printf(msg)
+			} else {
+				fmt.Printf(msg)
+			}
+		}
+	}
+}
+
+func (p *TerminalPlayer) PollForInput() (int, error) {
+	str := p.Prompt("Choose a move number:")
+	return strconv.Atoi(str)
+}
+
+// Prompt gives a prompt and reads input until newlines.
+func (p *TerminalPlayer) Prompt(prompt string) string {
+	return p.PromptFrom(os.Stdout, os.Stdin, prompt)
+}
+
+// PromptFrom gives a prompt and reads input until newlines from a given set of streams.
+func (p *TerminalPlayer) PromptFrom(stdout io.Writer, stdin io.Reader, prompt string) string {
+	// p.pauseLogs()
+	// p.drain()
+	// defer p.resumeLogs()
+	fmt.Printf(prompt)
+
+	scanner := bufio.NewScanner(stdin)
+	var output string
+	if scanner.Scan() {
+		output = scanner.Text()
+	}
+	return output
+}

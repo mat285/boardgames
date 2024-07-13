@@ -23,7 +23,7 @@ const (
 	pingPeriod = (pongWait * 9) / 10
 
 	// Maximum message size allowed from peer.
-	maxMessageSize = 2048
+	maxMessageSize = 2 * 1024 * 1024
 )
 
 type Client struct {
@@ -200,6 +200,7 @@ func (c *Client) writeMessage(packet Packet) error {
 	if c.conn == nil {
 		return fmt.Errorf("closed websocket connection")
 	}
+	// fmt.Println("writing ws packet size", len(packet.Data))
 	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	err := c.conn.WriteMessage(packet.Type, packet.Data)
 	if err != nil {
@@ -243,9 +244,10 @@ func (c *Client) read(ctx context.Context) error {
 		return fmt.Errorf("no connection open to read")
 	}
 
-	conn.SetReadLimit(maxMessageSize)
-	conn.SetReadDeadline(time.Now().Add(pongWait))
-	conn.SetPongHandler(func(string) error { c.conn.SetReadDeadline(time.Now().Add(pongWait)); return nil })
+	conn.SetPongHandler(func(string) error {
+		c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
 
 	for {
 		// check ctx first then fall through
@@ -255,7 +257,11 @@ func (c *Client) read(ctx context.Context) error {
 		default:
 		}
 
+		c.lock.Lock()
+		conn.SetReadLimit(maxMessageSize)
+		conn.SetReadDeadline(time.Now().Add(pongWait))
 		t, rawData, err := conn.ReadMessage()
+		c.lock.Unlock()
 		if err != nil {
 			logger.MaybeErrorContext(ctx, log, err)
 			return err

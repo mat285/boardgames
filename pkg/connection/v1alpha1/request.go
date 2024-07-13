@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/blend/go-sdk/uuid"
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
@@ -49,16 +50,23 @@ func NewRequestManager(upstream PacketHandler) Requester {
 
 func (rm *RequestManager) Receive(ctx context.Context, packet wire.Packet) error {
 	reqID := packet.Options.Value(PacketHeaderRequestID)
+	parsed, err := uuid.Parse(reqID)
+	if err != nil {
+		return rm.upstream(ctx, packet)
+	}
+	reqID = parsed.ToFullString()
+	fmt.Println("handling packet for request", reqID)
 	if len(reqID) == 0 {
 		return rm.upstream(ctx, packet)
 	}
 	rm.Lock()
-	defer rm.Unlock()
 	if resp, has := rm.responses[reqID]; has && resp.p != nil && len(resp.p) == 0 {
+		rm.Unlock()
+		fmt.Println("Pushing packet to response channel")
 		resp.p <- packet
-		rm.closeResponseChannelUnsafe(reqID)
 		return nil
 	}
+	rm.Unlock()
 	return rm.upstream(ctx, packet)
 }
 
@@ -72,25 +80,35 @@ func (rm *RequestManager) Request(ctx context.Context, sender Sender, packet wir
 	resp := newPacketErrorChannelPair()
 	rm.responses[packet.ID.ToFullString()] = resp
 	rm.Unlock()
-
+	fmt.Println("Sending packet for request id", packet.ID)
 	packet.Options.Add(PacketHeaderRequestResponse, packet.ID.ToFullString())
 	err := sender.Send(ctx, packet)
 	if err != nil {
-		rm.closeResponseChannel(key)
+		fmt.Println("error sending packet for rquest", packet.ID)
+		rm.removeResponseChannel(key)
 		return nil, err
 	}
+	fmt.Println("waiting for response for packet", packet.ID)
 
 	tick := time.After(time.Second * 300)
 	select {
 	case <-ctx.Done():
-		rm.closeResponseChannel(key)
+		rm.removeResponseChannel(key)
 		return nil, ctx.Err()
 	case <-tick:
-		rm.closeResponseChannel(key)
+		rm.removeResponseChannel(key)
 		return nil, fmt.Errorf("Timeout")
 	case packet := <-resp.p:
+		rm.removeResponseChannel(key)
 		return &packet, nil
 	}
+}
+
+func (rm *RequestManager) removeResponseChannel(key string) {
+	rm.Lock()
+	defer rm.Unlock()
+	rm.closeResponseChannelUnsafe(key)
+	delete(rm.responses, key)
 }
 
 func (rm *RequestManager) closeResponseChannel(key string) {

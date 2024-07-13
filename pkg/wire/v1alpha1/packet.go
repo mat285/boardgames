@@ -39,6 +39,11 @@ func (p Packet) Serialize() ([]byte, error) {
 	return json.Marshal(p)
 }
 
+func (p Packet) MustJSON() string {
+	data, _ := json.MarshalIndent(p, "", " ")
+	return string(data)
+}
+
 func (p Packet) Websocket() websockets.Packet {
 	return websockets.Packet{
 		Type: int(p.Header.Type),

@@ -40,11 +40,19 @@ func (w *Websocket) GetUsername() string {
 	return w.client.GetUsername()
 }
 
+func (w *Websocket) NewConnection(ctx context.Context, client *websockets.Client) {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	w.client = client
+	w.client.Start(ctx)
+}
+
 func (w *Websocket) Open(ctx context.Context) error {
 	w.lock.Lock()
 	if w.client == nil {
 		w.lock.Unlock()
-		return fmt.Errorf("No websocket connection")
+		return nil
+		// return fmt.Errorf("No websocket connection")
 	}
 	c := w.client
 	w.lock.Unlock()
@@ -56,13 +64,20 @@ func (w *Websocket) Send(ctx context.Context, m wire.Packet) error {
 	client := w.client
 	w.lock.Unlock()
 	if client == nil {
-		return fmt.Errorf("No websocket connection")
+		return nil
+		// return fmt.Errorf("No websocket connection")
 	}
+	// fmt.Println("Sending packet to client", w.client.GetID(), m.MustJSON())
 	p, err := w.serializeMessage(m)
 	if err != nil {
 		return err
 	}
-	return client.Send(ctx, *p)
+	err = client.Send(ctx, *p)
+	if err != nil {
+
+	}
+	// return client.Send(ctx, *p)
+	return nil
 }
 
 func (w *Websocket) Listen(ctx context.Context, handle connection.PacketHandler) error {
@@ -134,6 +149,9 @@ func (w *Websocket) Close(ctx context.Context) error {
 	close(w.stop)
 	if w.client != nil {
 		err := w.client.Stop(ctx)
+		if err == nil {
+			w.client = nil
+		}
 		w.lock.Unlock()
 		return err
 	}

@@ -73,6 +73,11 @@ func (e *Engine) Receive(ctx context.Context, packet wire.Packet) error {
 	return e.request.Receive(ctx, packet)
 }
 
+func (e *Engine) ReceiveFromPlayer(ctx context.Context, id uuid.UUID, packet wire.Packet) error {
+	packet.Header.Values().Add(connection.PacketHeaderRequestID, id.String())
+	return e.request.Receive(ctx, packet)
+}
+
 func (e *Engine) receive(ctx context.Context, packet wire.Packet) error {
 
 	return nil
@@ -141,12 +146,15 @@ func (e *Engine) gameTurnUnsafe(ctx context.Context) error {
 	}
 	msg.Destination = pid
 	msg.Origin = e.ID
+	msg.ID = pid
 
+	fmt.Println("sending move request to player", pid)
 	resp, err := e.request.Request(ctx, player, *msg)
 	if err != nil {
+		fmt.Println("error getting moves from player", pid, err)
 		return err
 	}
-
+	fmt.Println("Got move from player", pid)
 	move, err := e.MessageProvider.ExtractMove(*resp)
 	if err != nil {
 		return err

@@ -10,7 +10,7 @@ const (
 )
 
 var (
-	ID = uuid.V4()
+// ID = uuid.V4()
 )
 
 type Object struct {
@@ -24,7 +24,7 @@ type Meta struct {
 }
 
 func (m Meta) ID() uuid.UUID {
-	return ID
+	return uuid.Empty()
 }
 
 func (m Meta) Name() string {

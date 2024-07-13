@@ -21,6 +21,17 @@ type Metadata struct {
 
 type HeaderOptions map[string]string
 
+func (h *Header) Values() *HeaderOptions {
+	if h == nil {
+		d := make(HeaderOptions)
+		return &d
+	}
+	if h.Options == nil {
+		h.Options = make(HeaderOptions)
+	}
+	return &h.Options
+}
+
 func (ho *HeaderOptions) Append(other HeaderOptions) {
 	if other == nil {
 		return

@@ -67,9 +67,9 @@ func (s Serializer) DeserializeState(obj *v1alpha1.SerializedObject) (v1alpha1.S
 	if obj == nil {
 		return nil, nil
 	}
-	if !obj.ID.Equal(s.Meta().ID()) {
-		return nil, fmt.Errorf("Incorrect Serializer for Object")
-	}
+	// if !obj.ID.Equal(s.Meta().ID()) {
+	// 	return nil, fmt.Errorf("Incorrect Serializer for Object")
+	// }
 	var state game.State
 	return state, json.Unmarshal(obj.Data, &state)
 }
