@@ -98,9 +98,14 @@ func (s *Server) OpenWebSocketsConnection(w http.ResponseWriter, r *http.Request
 		return
 		// write err
 	}
-	client := NewWebsocket(userID, username, conn, s.InboundPackets)
-	s.Router.ConnectClient(s.Ctx, client)
-	client.Open(s.Ctx)
+	client, ok := s.Router.GetClient(userID).(*Websocket)
+	if client != nil && ok {
+		client.NewConnection(s.Ctx, conn)
+	} else {
+		client = NewWebsocket(userID, username, conn, s.InboundPackets)
+		s.Router.ConnectClient(s.Ctx, client)
+		client.Open(s.Ctx)
+	}
 }
 
 func (s *Server) JoinGame(r *web.Ctx) web.Result {

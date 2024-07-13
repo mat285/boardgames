@@ -18,6 +18,9 @@ import (
 type Websocket struct {
 	lock sync.Mutex
 
+	id      uuid.UUID
+	usename string
+	in      chan websockets.Packet
 	client  *websockets.Client
 	inbound chan websockets.Packet
 
@@ -27,6 +30,9 @@ type Websocket struct {
 func NewWebsocket(id uuid.UUID, username string, conn *websocket.Conn, in chan websockets.Packet) *Websocket {
 	return &Websocket{
 		lock:    sync.Mutex{},
+		id:      id,
+		usename: username,
+		in:      in,
 		client:  websockets.NewClient(id, username, conn, in),
 		inbound: in,
 	}
@@ -40,10 +46,13 @@ func (w *Websocket) GetUsername() string {
 	return w.client.GetUsername()
 }
 
-func (w *Websocket) NewConnection(ctx context.Context, client *websockets.Client) {
+func (w *Websocket) NewConnection(ctx context.Context, conn *websocket.Conn) {
 	w.lock.Lock()
 	defer w.lock.Unlock()
-	w.client = client
+	if w.client != nil {
+		w.client.Stop(ctx)
+	}
+	w.client = websockets.NewClient(w.id, w.usename, conn, w.in)
 	w.client.Start(ctx)
 }
 

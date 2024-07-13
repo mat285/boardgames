@@ -55,14 +55,12 @@ func (rm *RequestManager) Receive(ctx context.Context, packet wire.Packet) error
 		return rm.upstream(ctx, packet)
 	}
 	reqID = parsed.ToFullString()
-	fmt.Println("handling packet for request", reqID)
 	if len(reqID) == 0 {
 		return rm.upstream(ctx, packet)
 	}
 	rm.Lock()
 	if resp, has := rm.responses[reqID]; has && resp.p != nil && len(resp.p) == 0 {
 		rm.Unlock()
-		fmt.Println("Pushing packet to response channel")
 		resp.p <- packet
 		return nil
 	}
@@ -80,15 +78,12 @@ func (rm *RequestManager) Request(ctx context.Context, sender Sender, packet wir
 	resp := newPacketErrorChannelPair()
 	rm.responses[packet.ID.ToFullString()] = resp
 	rm.Unlock()
-	fmt.Println("Sending packet for request id", packet.ID)
 	packet.Options.Add(PacketHeaderRequestResponse, packet.ID.ToFullString())
 	err := sender.Send(ctx, packet)
 	if err != nil {
-		fmt.Println("error sending packet for rquest", packet.ID)
 		rm.removeResponseChannel(key)
 		return nil, err
 	}
-	fmt.Println("waiting for response for packet", packet.ID)
 
 	tick := time.After(time.Second * 300)
 	select {

@@ -148,13 +148,10 @@ func (e *Engine) gameTurnUnsafe(ctx context.Context) error {
 	msg.Origin = e.ID
 	msg.ID = pid
 
-	fmt.Println("sending move request to player", pid)
 	resp, err := e.request.Request(ctx, player, *msg)
 	if err != nil {
-		fmt.Println("error getting moves from player", pid, err)
 		return err
 	}
-	fmt.Println("Got move from player", pid)
 	move, err := e.MessageProvider.ExtractMove(*resp)
 	if err != nil {
 		return err
