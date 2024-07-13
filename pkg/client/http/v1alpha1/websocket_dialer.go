@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -11,11 +12,14 @@ import (
 	"github.com/blend/go-sdk/uuid"
 	"github.com/gorilla/websocket"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
-	"github.com/mat285/boardgames/pkg/errors"
+	"github.com/mat285/boardgames/pkg/websockets"
+	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
 type WebsocketDialer struct {
-	Websocket
+	ws       *websockets.Client
+	stop     chan struct{}
+	inbound  chan websockets.Packet
 	lock     sync.Mutex
 	Addr     string
 	Username string
@@ -29,7 +33,26 @@ func NewWebsocketDialer(addr string, userID uuid.UUID, username string) *Websock
 		Addr:     addr,
 		Username: username,
 		UserID:   userID,
+		inbound:  make(chan websockets.Packet, 16),
 	}
+}
+
+func (w *WebsocketDialer) Open(ctx context.Context) error {
+	return nil
+}
+
+func (w *WebsocketDialer) Send(ctx context.Context, m wire.Packet) error {
+	w.lock.Lock()
+	client := w.ws
+	w.lock.Unlock()
+	if client == nil {
+		return fmt.Errorf("No websocket connection")
+	}
+	p, err := w.serializeMessage(m)
+	if err != nil {
+		return err
+	}
+	return client.Send(ctx, *p)
 }
 
 func (w *WebsocketDialer) Listen(ctx context.Context, handler connection.PacketHandler) error {
@@ -41,31 +64,63 @@ func (w *WebsocketDialer) ListenRetry(ctx context.Context, handler connection.Pa
 }
 
 func (w *WebsocketDialer) listen(ctx context.Context, handler connection.PacketHandler) error {
+	if w.listening {
+		return fmt.Errorf("already listening")
+	}
 	w.lock.Lock()
 	if w.listening {
 		w.lock.Unlock()
 		return fmt.Errorf("already listening")
 	}
 	w.listening = true
-	w.lock.Unlock()
 	err := w.dial(ctx)
 	if err != nil {
 		return err
 	}
-	wg := errors.NewErrorWaitGroup(2)
-	wg.Add(2)
-	go func() {
-		wg.PushDone(w.Websocket.Open(ctx))
-	}()
-	go func() {
-		wg.PushDone(w.Websocket.Listen(ctx, handler))
-	}()
-	err = wg.Wait()
-	w.Websocket.Close(ctx)
-	w.lock.Lock()
-	w.listening = true
+	stop := make(chan struct{})
+	w.stop = stop
 	w.lock.Unlock()
-	return err
+
+	errs := make(chan error)
+	go func() {
+		errs <- w.ws.Start(ctx)
+	}()
+
+	defer func() {
+		w.lock.Lock()
+		defer w.lock.Unlock()
+		w.ws.Stop(ctx)
+		w.listening = false
+		if w.stop != nil {
+			w.stop = nil
+		}
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case err := <-errs:
+			return err
+		case <-stop:
+			return nil
+		case packet, ok := <-w.inbound:
+			if !ok {
+				return fmt.Errorf("ws channel closed")
+			}
+			typed, err := w.deserializePacket(packet)
+			if err != nil {
+				continue
+			}
+			go func() {
+				err := handler(ctx, *typed)
+				if err != nil {
+
+				}
+			}()
+			continue
+		}
+	}
 }
 
 func (w *WebsocketDialer) retryListen(ctx context.Context, handler connection.PacketHandler, attempts int) error {
@@ -89,13 +144,13 @@ func (w *WebsocketDialer) retryListen(ctx context.Context, handler connection.Pa
 }
 
 func (w *WebsocketDialer) Close(ctx context.Context) error {
-	if !w.listening {
+	w.lock.Lock()
+	defer w.lock.Unlock()
+	if !w.listening || w.stop == nil {
 		return nil
 	}
-	err := w.Websocket.Close(ctx)
-	if err != nil {
-		return err
-	}
+	close(w.stop)
+	w.stop = nil
 	return nil
 }
 
@@ -119,7 +174,20 @@ func (w *WebsocketDialer) dial(ctx context.Context) error {
 			return err
 		}
 	}
-	ws := NewWebsocket(uuid.V4(), w.Username, conn)
-	w.Websocket = *ws
+	ws := websockets.NewClient(w.UserID, w.Username, conn, w.inbound)
+	w.ws = ws
 	return nil
+}
+
+func (w *WebsocketDialer) deserializePacket(p websockets.Packet) (*wire.Packet, error) {
+	var m wire.Packet
+	return &m, json.Unmarshal(p.Data, &m)
+}
+
+func (w *WebsocketDialer) serializeMessage(m wire.Packet) (*websockets.Packet, error) {
+	data, err := json.Marshal(m)
+	if err != nil {
+		return nil, err
+	}
+	return &websockets.Packet{Type: websocket.TextMessage, Data: data}, nil
 }
