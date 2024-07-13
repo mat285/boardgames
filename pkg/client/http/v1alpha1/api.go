@@ -10,8 +10,8 @@ import (
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
-	server "github.com/mat285/boardgames/pkg/server/http/v1alpha1"
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
+	server "github.com/mat285/boardgames/server/http/v1alpha1"
 )
 
 var (

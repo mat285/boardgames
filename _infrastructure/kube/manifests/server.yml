@@ -1,0 +1,53 @@
+
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: server
+  namespace: boardgames
+
+---
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: server
+  namespace: boardgames
+  labels:
+    app.boardgames.churners.network/name: server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.boardgames.churners.network/name: server
+      app-instance: server
+  template:
+    metadata:
+      labels:
+        app.boardgames.churners.network/name: server
+        app-instance: server
+    spec:
+      serviceAccountName: server
+      containers:
+      - name: boardgames
+        image: kube-registry:5000/boardgames:latest
+        ports:
+        - containerPort: 8080
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: server
+  namespace: boardgames
+  labels:
+    app.boardgames.churners.network/name: server
+spec:
+  selector:
+    app.boardgames.churners.network/name: server
+    app-instance: server
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+

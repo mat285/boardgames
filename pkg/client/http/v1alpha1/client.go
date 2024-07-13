@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/blend/go-sdk/uuid"
-	server "github.com/mat285/boardgames/pkg/server/http/v1alpha1"
+	server "github.com/mat285/boardgames/server/http/v1alpha1"
 )
 
 type Client struct {

@@ -8,9 +8,9 @@ import (
 	"github.com/blend/go-sdk/uuid"
 	"github.com/blend/go-sdk/web"
 	obj "github.com/mat285/boardgames/pkg/core/v1alpha1"
-	core "github.com/mat285/boardgames/pkg/server/core/v1alpha1"
 	"github.com/mat285/boardgames/pkg/websockets"
 	"github.com/mat285/boardgames/pkg/wire/v1alpha1"
+	core "github.com/mat285/boardgames/server/core/v1alpha1"
 )
 
 // var (

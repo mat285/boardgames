@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/blend/go-sdk/graceful"
-	"github.com/mat285/boardgames/pkg/server/http/v1alpha1"
+	"github.com/mat285/boardgames/server/http/v1alpha1"
 	"github.com/spf13/cobra"
 )
 

@@ -10,7 +10,7 @@ import (
 	"github.com/mat285/boardgames/games/splendor/pkg/game"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
-	local "github.com/mat285/boardgames/pkg/server/local/v1alpha1"
+	local "github.com/mat285/boardgames/server/local/v1alpha1"
 )
 
 func main() {

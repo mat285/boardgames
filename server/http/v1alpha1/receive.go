@@ -7,8 +7,8 @@ import (
 
 	"github.com/blend/go-sdk/uuid"
 	"github.com/mat285/boardgames/games"
-	api "github.com/mat285/boardgames/pkg/server/api/v1alpha1"
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
+	api "github.com/mat285/boardgames/server/api/v1alpha1"
 )
 
 func (s *Server) Receive(ctx context.Context, packet wire.Packet) error {

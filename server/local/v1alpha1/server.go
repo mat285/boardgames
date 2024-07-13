@@ -3,7 +3,7 @@ package v1alpha1
 import (
 	"context"
 
-	core "github.com/mat285/boardgames/pkg/server/core/v1alpha1"
+	core "github.com/mat285/boardgames/server/core/v1alpha1"
 )
 
 type Server struct {

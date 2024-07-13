@@ -6,8 +6,8 @@ import (
 
 	"github.com/blend/go-sdk/uuid"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
-	core "github.com/mat285/boardgames/pkg/server/core/v1alpha1"
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
+	core "github.com/mat285/boardgames/server/core/v1alpha1"
 )
 
 var (
