@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/blend/go-sdk/uuid"
 	"github.com/charmbracelet/bubbles/textarea"
@@ -96,7 +97,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		switch msg.Type {
 		case tea.KeyCtrlC, tea.KeyEsc:
-			// fmt.Println(m.textarea.Value())
 			return m, tea.Quit
 		case tea.KeyUp:
 			prevIdx := len(m.history) - m.index - 1
@@ -626,31 +626,12 @@ func (p *Terminal) retryListen(ctx context.Context) {
 			// fmt.Println("Error listening for websocket", err)
 		}
 		p.apiClient.Close(ctx)
+		time.Sleep(time.Second * 10)
 	}
 }
 
 func (p *Terminal) Handle(ctx context.Context, packet wire.Packet) error {
-	fmt.Println("got inbound packet from server")
 	p.Packets <- packet
-	// switch packet.Type {
-	// case messages.PacketTypeRequestMove:
-	// 	state, err := p.Message.ExtractState(packet)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	go p.Request(ctx, state, packet.ID)
-	// 	return nil
-	// case messages.PacketTypePlayerMoveInfo:
-	// 	var so game.SerializedObject
-	// 	json.Unmarshal(packet.Payload, &so)
-	// 	fmt.Println(packet.Type, string(so.Data))
-	// 	info, err := p.Message.ExtractPlayerMoveInfo(packet)
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	fmt.Println("Got player move info", string(info.Move.Data))
-	// }
-	// return nil
 	return nil
 }
 

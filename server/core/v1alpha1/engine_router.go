@@ -30,7 +30,6 @@ func NewEngineRouter() *EngineRouter {
 
 func (r *EngineRouter) GetEngine(id uuid.UUID) *engine.Engine {
 	e := r.GetServer(id)
-	// fmt.Println("getting engine", id, e)
 	if e == nil {
 		return nil
 	}

@@ -76,9 +76,10 @@ func (h Hand) CanPurchase(card Card) bool {
 	}
 
 	for gem, count := range h.Gems.ToMap() {
-		if price[gem] <= count {
-			delete(price, gem)
+		if count > price[gem] {
+			count = price[gem]
 		}
+		price[gem] -= count
 	}
 
 	remaining := 0
@@ -106,19 +107,20 @@ func (h Hand) Purchase(card Card) Hand {
 
 	for g := range price {
 		price[g] -= cardCounts[g]
-		if price[g] <= 0 {
-			delete(price, g)
-		}
 	}
 
 	gems := h.Gems.ToMap()
 
 	for g, c := range price {
+		if c == 0 {
+			continue
+		}
 		if gems[g] >= c {
 			gems[g] -= c
 		} else {
-			gems[GemWild] -= (c - gems[g])
+			c -= gems[g]
 			gems[g] = 0
+			gems[GemWild] -= c
 		}
 	}
 

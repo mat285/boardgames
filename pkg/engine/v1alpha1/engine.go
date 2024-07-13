@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/blend/go-sdk/logger"
 	"github.com/blend/go-sdk/uuid"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
@@ -130,6 +131,7 @@ func (e *Engine) Start(ctx context.Context) error {
 }
 
 func (e *Engine) gameLoop(ctx context.Context) error {
+	log := logger.GetLogger(ctx)
 	for {
 		select {
 		case <-ctx.Done():
@@ -142,7 +144,7 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 
 		err := e.gameTurnPreMove(ctx)
 		if err != nil {
-			fmt.Println(err)
+			logger.MaybeError(log, err)
 			continue
 		}
 		select {
@@ -158,12 +160,12 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 			player, move, err := e.gameTurnApplyPacket(ctx, packet)
 			e.Unlock()
 			if err != nil {
-				fmt.Println(err)
+				logger.MaybeError(log, err)
 				continue
 			}
 			err = e.broadcastPlayerMove(ctx, player.ID, move)
 			if err != nil {
-				fmt.Println(err)
+				logger.MaybeError(log, err)
 				continue
 			}
 			continue
@@ -172,6 +174,7 @@ func (e *Engine) gameLoop(ctx context.Context) error {
 }
 
 func (e *Engine) gameTurnPreMove(ctx context.Context) error {
+	log := logger.GetLogger(ctx)
 	if e.State.Data.IsDone() {
 		msg, err := e.MessageProvider.MessageGameOver(e.State.Data.Winners())
 		if err != nil {
@@ -182,7 +185,7 @@ func (e *Engine) gameTurnPreMove(ctx context.Context) error {
 
 	pid, err := e.State.Data.CurrentPlayer()
 	if err != nil {
-		fmt.Println(err)
+		logger.MaybeError(log, err)
 		return err
 	}
 
@@ -202,13 +205,14 @@ func (e *Engine) gameTurnPreMove(ctx context.Context) error {
 }
 
 func (e *Engine) gameTurnApplyPacket(ctx context.Context, packet wire.Packet) (*Player, game.Move, error) {
+	log := logger.GetLogger(ctx)
 	if e.State.Data.IsDone() {
 		return nil, nil, fmt.Errorf("game is already over ignoring move")
 	}
 
 	pid, err := e.State.Data.CurrentPlayer()
 	if err != nil {
-		fmt.Println(err)
+		logger.MaybeError(log, err)
 		return nil, nil, err
 	}
 
@@ -249,68 +253,8 @@ func (e *Engine) broadcastPlayerMove(ctx context.Context, player uuid.UUID, move
 	return e.Broadcast(ctx, msg, player)
 }
 
-// func (e *Engine) gameTurnUnsafe(ctx context.Context) error {
-// 	if e.State.Data.IsDone() {
-// 		msg, err := e.MessageProvider.MessageGameOver(e.State.Data.Winners())
-// 		if err != nil {
-// 			return err
-// 		}
-// 		return e.Broadcast(ctx, msg)
-// 	}
-
-// 	pid, err := e.State.Data.CurrentPlayer()
-// 	if err != nil {
-// 		fmt.Println(err)
-// 		return err
-// 	}
-
-// 	player := e.GetPlayer(pid)
-// 	if player == nil {
-// 		return fmt.Errorf("No player for id %s", pid)
-// 	}
-
-// 	msg, err := e.MessageProvider.MessageRequestMove(e.State.Data)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	msg.Destination = pid
-// 	msg.Origin = e.ID
-// 	msg.ID = pid
-
-// 	resp, err := e.request.Request(ctx, player, *msg)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	move, err := e.MessageProvider.ExtractMove(*resp)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	response, err := move.Apply(e.State.Data)
-// 	if err != nil {
-// 		player.Send(ctx, wire.ErrorPacket(err))
-// 		return err
-// 	}
-
-// 	if !response.Valid {
-// 		player.Send(ctx, wire.ErrorPacket(fmt.Errorf("Invalid Move")))
-// 		return fmt.Errorf("Invalid Move")
-// 	}
-
-// 	msg, err = e.MessageProvider.MessagePlayerMoveInfo(player.ID, move)
-// 	if err != nil {
-// 		return err
-// 	}
-// 	err = e.Broadcast(ctx, msg, player.ID)
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	e.State.Data = response.State
-// 	return nil
-// }
-
 func (e *Engine) handleInterrupt(ctx context.Context, event Event) error {
+	log := logger.GetLogger(ctx)
 	switch event.Type {
 	case EventTypeUnknown:
 		fmt.Printf("Unknown interrupt %v\n", event.Body)
@@ -320,7 +264,7 @@ func (e *Engine) handleInterrupt(ctx context.Context, event Event) error {
 	case EventTypeSave:
 		err := e.Save(ctx)
 		if err != nil {
-			fmt.Println(err)
+			logger.MaybeError(log, err)
 		}
 		return e.Stop(ctx, event.Body)
 	}
@@ -359,6 +303,7 @@ func (e *Engine) Save(ctx context.Context) error {
 }
 
 func (e *Engine) Broadcast(ctx context.Context, packet *wire.Packet, exclude ...uuid.UUID) error {
+	log := logger.GetLogger(ctx)
 	if packet == nil {
 		return nil
 	}
@@ -368,7 +313,8 @@ func (e *Engine) Broadcast(ctx context.Context, packet *wire.Packet, exclude ...
 		}
 		err := player.Send(ctx, *packet)
 		if err != nil {
-			fmt.Println(err)
+			logger.MaybeError(log, err)
+			continue
 		}
 	}
 	return nil

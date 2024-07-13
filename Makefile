@@ -9,6 +9,7 @@ docker-push-server:
 .PHONY: k8s-apply
 k8s-apply:
 	@kubectl apply -f _infrastructure/kube/manifests/server.yml
+	@kubectl rollout restart deployment/server -n boardgames
 
 .PHONY: k8s-deploy
 k8s-deploy: docker-build-server docker-push-server k8s-apply

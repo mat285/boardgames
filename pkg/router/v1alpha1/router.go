@@ -16,13 +16,13 @@ var (
 
 type Router struct {
 	sync.Mutex
-	clients map[string]connection.ClientInfo
+	clients map[string]*connection.MultiConn
 	servers map[string]connection.ServerInfo
 }
 
 func NewRouter() *Router {
 	s := &Router{
-		clients: make(map[string]connection.ClientInfo),
+		clients: make(map[string]*connection.MultiConn),
 		servers: make(map[string]connection.ServerInfo),
 	}
 	return s
@@ -31,7 +31,10 @@ func NewRouter() *Router {
 func (s *Router) ConnectClient(ctx context.Context, client connection.ClientInfo) error {
 	s.Lock()
 	defer s.Unlock()
-	s.clients[client.GetID().ToFullString()] = client
+	if s.clients[client.GetID().ToFullString()] == nil {
+		s.clients[client.GetID().ToFullString()] = connection.NewMulti(client.GetID(), client.GetUsername())
+	}
+	s.clients[client.GetID().ToFullString()].Add(ctx, client)
 	return nil
 }
 

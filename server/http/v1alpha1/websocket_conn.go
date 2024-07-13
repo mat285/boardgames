@@ -76,7 +76,6 @@ func (w *Websocket) Send(ctx context.Context, m wire.Packet) error {
 		return nil
 		// return fmt.Errorf("No websocket connection")
 	}
-	// fmt.Println("Sending packet to client", w.client.GetID(), m.MustJSON())
 	p, err := w.serializeMessage(m)
 	if err != nil {
 		return err
@@ -85,7 +84,6 @@ func (w *Websocket) Send(ctx context.Context, m wire.Packet) error {
 	if err != nil {
 
 	}
-	// return client.Send(ctx, *p)
 	return nil
 }
 

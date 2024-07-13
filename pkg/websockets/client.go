@@ -200,7 +200,6 @@ func (c *Client) writeMessage(packet Packet) error {
 	if c.conn == nil {
 		return fmt.Errorf("closed websocket connection")
 	}
-	// fmt.Println("writing ws packet size", len(packet.Data))
 	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
 	err := c.conn.WriteMessage(packet.Type, packet.Data)
 	if err != nil {
@@ -258,7 +257,6 @@ func (c *Client) read(ctx context.Context) error {
 		}
 
 		// c.lock.Lock()
-		// fmt.Println("reading messages from server")
 		conn.SetReadLimit(maxMessageSize)
 		conn.SetReadDeadline(time.Now().Add(pongWait))
 		t, rawData, err := conn.ReadMessage()
