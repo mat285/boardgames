@@ -40,6 +40,8 @@ kind: Service
 metadata:
   name: server
   namespace: boardgames
+  annotations:
+    tailscale.com/expose: "true"
   labels:
     app.boardgames.churners.network/name: server
 spec:
