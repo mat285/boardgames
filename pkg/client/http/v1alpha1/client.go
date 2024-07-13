@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/blend/go-sdk/uuid"
-	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
+	server "github.com/mat285/boardgames/pkg/server/http/v1alpha1"
 )
 
 type Client struct {
@@ -32,13 +32,6 @@ func New(opts ...Option) *Client {
 
 func (c *Client) GetID() uuid.UUID {
 	return c.UserID
-}
-
-func (c *Client) Send(ctx context.Context, p wire.Packet) error {
-	if c.Websocket == nil {
-		return fmt.Errorf("no websocket conn")
-	}
-	return c.Websocket.Websocket.Send(ctx, p)
 }
 
 func (c *Client) Response(ctx context.Context, r *http.Request) (*http.Response, error) {
@@ -96,6 +89,9 @@ func (c *Client) NewRequest(ctx context.Context, verb string, route string, para
 	if err != nil {
 		return nil, err
 	}
+
+	req.Header.Add(server.HeaderKeyUsername, c.Username)
+	req.Header.Add(server.HeaderKeyUserID, c.UserID.ToFullString())
 
 	for _, opt := range opts {
 		opt(req)

@@ -257,11 +257,12 @@ func (c *Client) read(ctx context.Context) error {
 		default:
 		}
 
-		c.lock.Lock()
+		// c.lock.Lock()
+		// fmt.Println("reading messages from server")
 		conn.SetReadLimit(maxMessageSize)
 		conn.SetReadDeadline(time.Now().Add(pongWait))
 		t, rawData, err := conn.ReadMessage()
-		c.lock.Unlock()
+		// c.lock.Unlock()
 		if err != nil {
 			logger.MaybeErrorContext(ctx, log, err)
 			return err
@@ -275,8 +276,20 @@ func (c *Client) read(ctx context.Context) error {
 				// drop packet
 				continue
 			}
+		case websocket.PingMessage:
+			err := c.Send(ctx, Packet{Type: websocket.PongMessage})
+			if err != nil {
+				logger.MaybeErrorContext(ctx, log, err)
+				continue
+			}
+		case websocket.PongMessage:
+			continue
 		default:
-			return fmt.Errorf("Unknown message type %d", t)
+			err := fmt.Errorf("Unknown message type %d", t)
+			if err != nil {
+				logger.MaybeErrorContext(ctx, log, err)
+				continue
+			}
 		}
 
 	}

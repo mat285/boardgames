@@ -50,15 +50,15 @@ func (s Serializer) DeserializeMove(obj *v1alpha1.SerializedObject) (v1alpha1.Mo
 }
 
 func (s Serializer) SerializeState(state v1alpha1.StateData) (*v1alpha1.SerializedObject, error) {
-	if !state.Meta().ID().Equal(s.Meta().ID()) {
-		return nil, fmt.Errorf("Incorrect object metadata for serializer")
-	}
+	// if !state.Meta().ID().Equal(s.Meta().ID()) {
+	// 	return nil, fmt.Errorf("Incorrect object metadata for serializer")
+	// }
 	bytes, err := json.Marshal(state)
 	if err != nil {
 		return nil, err
 	}
 	return &v1alpha1.SerializedObject{
-		ID:   state.Meta().ID(),
+		// ID:   state.Meta().ID(),
 		Data: bytes,
 	}, nil
 }

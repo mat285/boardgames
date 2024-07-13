@@ -9,7 +9,8 @@ import (
 	"github.com/blend/go-sdk/uuid"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
-	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
+	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
+	server "github.com/mat285/boardgames/pkg/server/http/v1alpha1"
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
@@ -18,49 +19,72 @@ var (
 )
 
 func (c *Client) Connect(ctx context.Context, _ connection.ConnectionInfo) error {
-	_, err := c.getUserID(ctx)
+	if c.Websocket != nil {
+		return nil
+	}
+	if c.UserID.IsZero() {
+		err := c.Login(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	c.Websocket = NewWebsocketDialer(c.webSocketsAddress(c.Username), c.UserID, c.Username)
+	return nil
+}
+
+func (c *Client) Listen(ctx context.Context, handler connection.PacketHandler) error {
+	if c.Websocket == nil {
+		return fmt.Errorf("please connect first")
+	}
+	return c.Websocket.Listen(ctx, handler)
+}
+
+func (c *Client) Close(ctx context.Context) error {
+	if c.Websocket == nil {
+		return nil
+	}
+	err := c.Websocket.Close(ctx)
+	c.Websocket = nil
 	return err
 }
 
-func (c *Client) GetUser(ctx context.Context, name string) (uuid.UUID, error) {
+func (c *Client) Send(ctx context.Context, packet wire.Packet) error {
+	if c.Websocket == nil {
+		return fmt.Errorf("please connect first")
+	}
+	return c.Websocket.Send(ctx, packet)
+}
+
+func (c *Client) Login(ctx context.Context) error {
+	body := game.Player{
+		Username: c.Username,
+	}
+	req, err := c.NewJSONRequest(
+		ctx,
+		http.MethodPost,
+		"/api/v1alpha1/user/login",
+		nil,
+		body,
+	)
+	if err != nil {
+		return err
+	}
+	return c.JSON(ctx, req, &c.UserID)
+}
+
+func (c *Client) GetUserGames(ctx context.Context) ([]server.UserGame, error) {
 	req, err := c.NewRequest(
 		ctx,
 		http.MethodGet,
-		"/api/v1alpha1/user/:name",
-		map[string]string{
-			":name": name,
-		},
+		"/api/v1alpha1/user/games",
+		nil,
 		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
-	var id uuid.UUID
-	return id, c.JSON(ctx, req, &id)
-}
-
-func (c *Client) getUserID(ctx context.Context) (uuid.UUID, error) {
-	if c.UserID.IsZero() {
-		id, err := c.GetUser(ctx, c.Username)
-		if err != nil {
-			return nil, err
-		}
-		c.UserID = id
-	}
-	return c.UserID, nil
-}
-
-func (c *Client) Listen(ctx context.Context, handler connection.PacketHandler) error {
-	userID, err := c.getUserID(ctx)
-	if err != nil {
-		fmt.Println("error getting user id", err)
-		return err
-	}
-	dialer := NewWebsocketDialer(c.webSocketsAddress(c.Username), userID, c.Username)
-	fmt.Println("listening for websocket packets")
-	err = dialer.Listen(ctx, handler)
-	fmt.Println(err)
-	return err
+	var res []server.UserGame
+	return res, c.JSON(ctx, req, &res)
 }
 
 func (c *Client) NewGame(ctx context.Context, name string, config interface{}) (uuid.UUID, error) {
@@ -81,22 +105,14 @@ func (c *Client) NewGame(ctx context.Context, name string, config interface{}) (
 }
 
 func (c *Client) Join(ctx context.Context, id uuid.UUID) error {
-	uid, err := c.getUserID(ctx)
-	if err != nil {
-		return err
-	}
-	p := v1alpha1.Player{
-		ID:       uid,
-		Username: c.Username,
-	}
-	req, err := c.NewJSONRequest(
+	req, err := c.NewRequest(
 		ctx,
 		http.MethodPost,
 		"/api/v1alpha1/game/:id/join",
 		map[string]string{
 			":id": id.ToFullString(),
 		},
-		p,
+		nil,
 	)
 	if err != nil {
 		return err
@@ -144,15 +160,13 @@ func (c *Client) GetState(ctx context.Context, id uuid.UUID) (*wire.Packet, erro
 	return &res, c.JSON(ctx, req, &res)
 }
 
-func (c *Client) MakeMove(ctx context.Context, id, player uuid.UUID, move wire.Packet) (*wire.Packet, error) {
-	move.Type = messages.PacketTypePlayerMove
+func (c *Client) SendPacket(ctx context.Context, id, player uuid.UUID, move wire.Packet) (*wire.Packet, error) {
 	req, err := c.NewJSONRequest(
 		ctx,
 		http.MethodPost,
-		"/api/v1alpha1/game/:id/move/:player",
+		"/api/v1alpha1/game/:id/packet",
 		map[string]string{
-			":id":     id.ToFullString(),
-			":player": player.ToFullString(),
+			":id": id.ToFullString(),
 		},
 		move,
 	)

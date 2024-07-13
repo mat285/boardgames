@@ -21,7 +21,7 @@ func main() {
 	g := getGame()
 	players := getPlayers(g, s)
 
-	e, err := s.NewEngine(ctx, g)
+	e, err := s.NewEngine(ctx, g, nil)
 	if err != nil {
 		panic(err)
 	}

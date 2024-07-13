@@ -15,11 +15,13 @@ import (
 )
 
 type WebsocketDialer struct {
-	*Websocket
+	Websocket
 	lock     sync.Mutex
 	Addr     string
 	Username string
 	UserID   uuid.UUID
+
+	listening bool
 }
 
 func NewWebsocketDialer(addr string, userID uuid.UUID, username string) *WebsocketDialer {
@@ -40,13 +42,14 @@ func (w *WebsocketDialer) ListenRetry(ctx context.Context, handler connection.Pa
 
 func (w *WebsocketDialer) listen(ctx context.Context, handler connection.PacketHandler) error {
 	w.lock.Lock()
-	if w.Websocket != nil {
+	if w.listening {
 		w.lock.Unlock()
 		return fmt.Errorf("already listening")
 	}
+	w.listening = true
+	w.lock.Unlock()
 	err := w.dial(ctx)
 	if err != nil {
-		w.lock.Unlock()
 		return err
 	}
 	wg := errors.NewErrorWaitGroup(2)
@@ -57,13 +60,10 @@ func (w *WebsocketDialer) listen(ctx context.Context, handler connection.PacketH
 	go func() {
 		wg.PushDone(w.Websocket.Listen(ctx, handler))
 	}()
-	w.lock.Unlock()
 	err = wg.Wait()
+	w.Websocket.Close(ctx)
 	w.lock.Lock()
-	if w.Websocket != nil {
-		w.Websocket.Close(ctx)
-	}
-	w.Websocket = nil
+	w.listening = true
 	w.lock.Unlock()
 	return err
 }
@@ -89,16 +89,16 @@ func (w *WebsocketDialer) retryListen(ctx context.Context, handler connection.Pa
 }
 
 func (w *WebsocketDialer) Close(ctx context.Context) error {
-	w.lock.Lock()
-	defer w.lock.Unlock()
-	if w.Websocket == nil {
+	fmt.Println("closing websocket")
+	if !w.listening {
 		return nil
 	}
 	err := w.Websocket.Close(ctx)
 	if err != nil {
+		fmt.Println("closed websocket", err)
 		return err
 	}
-	w.Websocket = nil
+	fmt.Println("closed websocket")
 	return nil
 }
 
@@ -122,6 +122,7 @@ func (w *WebsocketDialer) dial(ctx context.Context) error {
 			return err
 		}
 	}
-	w.Websocket = NewWebsocket(uuid.V4(), w.Username, conn)
+	ws := NewWebsocket(uuid.V4(), w.Username, conn)
+	w.Websocket = *ws
 	return nil
 }

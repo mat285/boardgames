@@ -17,14 +17,18 @@ import (
 
 func (s *Server) Register(app *web.App) {
 
+	app.POST("/api/v1alpha1/user/login", s.Login)
+
 	app.GET("/api/v1alpha1/registry", s.ListGamesNames)
-	app.GET("/api/v1alpha1/user/:name", s.GetUserID)
+	// app.GET("/api/v1alpha1/user/:name", s.GetUserID)
+
+	app.GET("/api/v1alpha1/user/games", s.ListUserGames)
 
 	app.POST("/api/v1alpha1/games/:name/new", s.NewGame)
 	app.POST("/api/v1alpha1/game/:id/join", s.JoinGame)
 	app.POST("/api/v1alpha1/game/:id/start", s.StartGame)
 	app.GET("/api/v1alpha1/game/:id/state", s.GetGameState)
-	app.POST("/api/v1alpha1/game/:id/move/:player", s.MakeMove)
+	app.POST("/api/v1alpha1/game/:id/packet", s.SendPacket)
 
 	app.RouteTree.Handle("GET", "/api/v1alpha1/websockets/:name", s.OpenWebSocketsConnection)
 
@@ -34,27 +38,24 @@ func (s *Server) ListGamesNames(r *web.Ctx) web.Result {
 	return web.JSON.Result(games.ListGames())
 }
 
-func (s *Server) GetUserID(r *web.Ctx) web.Result {
-	name, _ := r.Param("name")
-	if len(name) == 0 {
-		return web.JSON.BadRequest(fmt.Errorf("Missing `name`"))
+func (s *Server) Login(r *web.Ctx) web.Result {
+	var p game.Player
+	err := r.PostBodyAsJSON(&p)
+	if err != nil {
+		return web.JSON.BadRequest(err)
 	}
-
-	var res uuid.UUID
-	s.usersLock.Lock()
-	id, has := s.Users[name]
-	if has {
-		res = id
-	} else {
-		res = uuid.V4()
-		s.Users[name] = res
+	if len(p.Username) == 0 {
+		return web.JSON.BadRequest(fmt.Errorf("missing username"))
 	}
-	s.usersLock.Unlock()
-
-	return web.JSON.Result(res)
+	id := s.GetOrSetUserID(p.Username)
+	return web.JSON.Result(id)
 }
 
 func (s *Server) NewGame(r *web.Ctx) web.Result {
+	userID, username, err := s.CurrentUser(r)
+	if err != nil {
+		return web.JSON.BadRequest(err)
+	}
 	name, _ := r.Param("name")
 	if len(name) == 0 {
 		return web.JSON.BadRequest(fmt.Errorf("Missing `name`"))
@@ -75,7 +76,18 @@ func (s *Server) NewGame(r *web.Ctx) web.Result {
 	if err != nil {
 		return web.JSON.BadRequest(err)
 	}
-	e, err := s.Router.NewEngine(s.Ctx, g)
+	e, err := s.Router.NewEngine(s.Ctx, g, nil)
+	if err != nil {
+		return web.JSON.InternalError(err)
+	}
+	e = s.Router.GetEngine(e.ID)
+	if e == nil {
+		return web.JSON.NotFound()
+	}
+	if s.Router.GetClient(userID) == nil {
+		s.Router.ConnectClient(s.Ctx, NewWebsocket(userID, username, nil, s.InboundPackets))
+	}
+	err = s.Router.Join(s.Ctx, userID, e.ID)
 	if err != nil {
 		return web.JSON.InternalError(err)
 	}
@@ -108,13 +120,30 @@ func (s *Server) OpenWebSocketsConnection(w http.ResponseWriter, r *http.Request
 	}
 }
 
-func (s *Server) JoinGame(r *web.Ctx) web.Result {
-	id, err := web.UUIDValue(r.Param("id"))
+type UserGame struct {
+	ID   uuid.UUID
+	Game string
+}
+
+func (s *Server) ListUserGames(r *web.Ctx) web.Result {
+	userID, _, err := s.CurrentUser(r)
 	if err != nil {
 		return web.JSON.BadRequest(err)
 	}
-	var p game.Player
-	err = r.PostBodyAsJSON(&p)
+	engines := s.Router.ClientEngines(r.Context(), userID)
+	res := make([]UserGame, len(engines))
+	for i, e := range engines {
+		res[i] = UserGame{ID: e.ID, Game: e.Game.Name()}
+	}
+	return web.JSON.Result(res)
+}
+
+func (s *Server) JoinGame(r *web.Ctx) web.Result {
+	userID, username, err := s.CurrentUser(r)
+	if err != nil {
+		return web.JSON.BadRequest(err)
+	}
+	id, err := web.UUIDValue(r.Param("id"))
 	if err != nil {
 		return web.JSON.BadRequest(err)
 	}
@@ -122,10 +151,10 @@ func (s *Server) JoinGame(r *web.Ctx) web.Result {
 	if e == nil {
 		return web.JSON.NotFound()
 	}
-	if s.Router.GetClient(p.ID) == nil {
-		s.Router.ConnectClient(s.Ctx, NewWebsocket(p.ID, p.Username, nil, s.InboundPackets))
+	if s.Router.GetClient(userID) == nil {
+		s.Router.ConnectClient(s.Ctx, NewWebsocket(userID, username, nil, s.InboundPackets))
 	}
-	err = s.Router.Join(s.Ctx, p.ID, id)
+	err = s.Router.Join(s.Ctx, userID, id)
 	if err != nil {
 		return web.JSON.InternalError(err)
 	}
@@ -164,34 +193,29 @@ func (s *Server) GetGameState(r *web.Ctx) web.Result {
 
 func (s *Server) stateResponse(e *engine.Engine) web.Result {
 	payload := []byte{}
-	if e.State != nil {
-		obj, err := e.Game.SerializeState(e.State.Data)
+	data, err := e.GetStateData()
+	if err == nil {
+		obj, err := e.MessageProvider.SerializeState(data)
 		if err != nil {
 			return web.JSON.InternalError(err)
 		}
 		payload = obj.Data
 	}
-
 	res := wire.NewPacket(wire.OptPacketHeaderValue("game", e.ID.String()), wire.OptPacketPayload(payload))
 	return web.JSON.Result(res)
 }
 
-// type GameMove struct {
-// 	ID       uuid.UUID `json:"id"`
-// 	PlayerID uuid.UUID `json:"player"`
-// 	Move     game.Move `json:"move"`
-// }
+func (s *Server) SendPacket(r *web.Ctx) web.Result {
+	userID, _, err := s.CurrentUser(r)
+	if err != nil {
+		return web.JSON.BadRequest(err)
+	}
 
-func (s *Server) MakeMove(r *web.Ctx) web.Result {
 	id, err := web.UUIDValue(r.Param("id"))
 	if err != nil {
 		return web.JSON.BadRequest(err)
 	}
 
-	pid, err := web.UUIDValue(r.Param("player"))
-	if err != nil {
-		return web.JSON.BadRequest(err)
-	}
 	e := s.Router.GetEngine(id)
 	if e == nil {
 		return web.JSON.NotFound()
@@ -204,7 +228,9 @@ func (s *Server) MakeMove(r *web.Ctx) web.Result {
 	if err != nil {
 		return web.JSON.BadRequest(err)
 	}
-	err = e.ReceiveFromPlayer(r.Context(), pid, *packet)
+	packet.Origin = userID
+	packet.Destination = e.ID
+	err = e.RecieveSync(r.Context(), *packet)
 	if err != nil {
 		return web.JSON.BadRequest(err)
 	}

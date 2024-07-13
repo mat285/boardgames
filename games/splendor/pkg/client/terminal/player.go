@@ -13,11 +13,9 @@ import (
 	"time"
 
 	"github.com/blend/go-sdk/uuid"
-	splendorgame "github.com/mat285/boardgames/games/splendor"
 	splendor "github.com/mat285/boardgames/games/splendor/pkg/game"
 	"github.com/mat285/boardgames/games/splendor/pkg/items"
 	client "github.com/mat285/boardgames/pkg/client/core/v1alpha1"
-	httpclient "github.com/mat285/boardgames/pkg/client/http/v1alpha1"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	game "github.com/mat285/boardgames/pkg/game/v1alpha1"
 	messages "github.com/mat285/boardgames/pkg/messages/v1alpha1"
@@ -26,9 +24,6 @@ import (
 
 type TerminalPlayer struct {
 	*client.Player
-
-	apiClient *httpclient.Client
-	gid       uuid.UUID
 
 	State        splendor.State
 	NeedMove     bool
@@ -44,17 +39,6 @@ type TerminalPlayer struct {
 func NewTerminalPlayer(username string, g game.Game, conn connection.Client) *TerminalPlayer {
 	tp := &TerminalPlayer{
 		Player:      client.NewPlayer(username, g, conn),
-		NeedMove:    false,
-		MoveChan:    make(chan game.Move),
-		LogMessages: make(chan string, 100),
-	}
-	return tp
-}
-
-func NewTerminalPlayerHTTP(username string, cli *httpclient.Client) *TerminalPlayer {
-	tp := &TerminalPlayer{
-		Player:      client.NewPlayer(username, nil, cli),
-		apiClient:   cli,
 		NeedMove:    false,
 		MoveChan:    make(chan game.Move),
 		LogMessages: make(chan string, 100),
@@ -81,44 +65,7 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 			continue
 		case "exit":
 			os.Exit(0)
-		case "new":
-			if p.apiClient == nil {
-				p.Println("not allowed without api client")
-				continue
-			}
-			p.apiClient.Username = p.Username
-			gcfg := splendor.Config{VictoryPoints: 7}
-			gid, err := p.apiClient.NewGame(ctx, "splendor", gcfg)
-			if err != nil {
-				p.Println("Error making new game", err.Error)
-				continue
-			}
-			p.Println("Created new game with ID:", gid)
-			p.gid = gid
-			p.Game = splendorgame.NewGameWithConfig(gcfg)
-			p.Player.Game = p.Game
-			p.Player.Message = messages.NewProvider(p.Game)
-			// go p.retryListen(ctx)
-			time.Sleep(time.Millisecond)
-			err = p.apiClient.Join(ctx, gid)
-			if err != nil {
-				p.Println("Error joining game", gid, err.Error)
-				continue
-			}
-			// p.Player.Game =
-			p.Println("Joined game", gid)
-			err = p.apiClient.Start(ctx, gid)
-			if err != nil {
-				p.Println("Error starting game", gid, err.Error)
-				continue
-			}
-
-			p.Println("Started game", gid)
 		case "board":
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
-				continue
-			}
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
@@ -127,10 +74,6 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 				p.Println(jsonMarshal(card))
 			}
 		case "players":
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
-				continue
-			}
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
@@ -139,10 +82,6 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 				p.Println(i, player.ID, jsonMarshal(player.Hand))
 			}
 		case "player":
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
-				continue
-			}
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
@@ -159,10 +98,6 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 			player := p.State.Players[num]
 			p.Println(prettyJSON(player.Hand))
 		case "hand":
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
-				continue
-			}
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
@@ -174,10 +109,6 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 			hand := player.Hand
 			p.Println(prettyJSON(hand))
 		case "gems":
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
-				continue
-			}
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
@@ -189,10 +120,6 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 			hand := player.Hand
 			p.Println(prettyJSON(hand.Gems.Add(hand.CardCounts())))
 		case "cards":
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
-				continue
-			}
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
@@ -206,10 +133,6 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 		case "reserve", "purchase":
 			if len(parts) != 2 {
 				p.Println("Need card id")
-				continue
-			}
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
 				continue
 			}
 			if p.State.Players == nil {
@@ -234,22 +157,10 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 				mv.Purchase = cm
 			}
 
-			made, err := p.maybeSendMove(ctx, mv)
-			if err != nil {
-				p.Println("Error sending move", err)
-				continue
-			}
-			if made {
-				p.Println("Made move")
-				continue
-			}
 			p.MoveChan <- mv
 
 		case "collect":
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
-				continue
-			}
+
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
@@ -269,22 +180,10 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 			}
 			move := &splendor.Move{Collect: &splendor.CollectMove{Take: take, Return: ret}}
 
-			made, err := p.maybeSendMove(ctx, move)
-			if err != nil {
-				p.Println("Error sending move", err)
-				continue
-			}
-			if made {
-				p.Println("Made move")
-				continue
-			}
 			p.MoveChan <- move
 			continue
 		case "moves":
-			if err := p.maybeFetchState(ctx); err != nil {
-				p.Println("error fetching state", err)
-				continue
-			}
+
 			if p.State.Players == nil {
 				p.Println("No active state")
 				continue
@@ -311,15 +210,7 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 				continue
 			}
 			move := moves[num]
-			made, err := p.maybeSendMove(ctx, move)
-			if err != nil {
-				p.Println("Error sending move", err)
-				continue
-			}
-			if made {
-				p.Println("Made move")
-				continue
-			}
+
 			p.MoveChan <- move
 
 		default:
@@ -327,53 +218,6 @@ func (p *TerminalPlayer) Start(ctx context.Context) error {
 		}
 	}
 
-}
-
-func (p *TerminalPlayer) maybeFetchState(ctx context.Context) error {
-	if p.apiClient == nil {
-		return nil
-	}
-	p.NeedMoveLock.Lock()
-	defer p.NeedMoveLock.Unlock()
-	packet, err := p.apiClient.GetState(ctx, p.gid)
-	if err != nil {
-		fmt.Println(string(packet.Payload))
-		return err
-	}
-	// fmt.Println("fetch state packet", string(packet.MustJSON()))
-	state, err := p.Game.DeserializeState(&game.SerializedObject{
-		ID:   p.gid,
-		Data: packet.Payload,
-	})
-	// state, err := p.Message.ExtractState(*packet)
-	if err != nil {
-		return err
-	}
-	typed, ok := state.(splendor.State)
-	if !ok {
-		return fmt.Errorf("Wrong game")
-	}
-	p.State = typed
-	cid, _ := p.State.CurrentPlayer()
-	if cid.Equal(p.apiClient.UserID) {
-		p.NeedMove = true
-	}
-	return nil
-}
-
-func (p *TerminalPlayer) maybeSendMove(ctx context.Context, move game.Move) (bool, error) {
-	if p.apiClient == nil {
-		return false, nil
-	}
-	packet, err := p.Message.MessagePlayerMove(move, p.apiClient.UserID)
-	if err != nil {
-		return false, err
-	}
-	_, err = p.apiClient.MakeMove(ctx, p.gid, p.apiClient.UserID, *packet)
-	if err != nil {
-		return false, err
-	}
-	return true, nil
 }
 
 func (p *TerminalPlayer) retryListen(ctx context.Context) {

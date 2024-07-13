@@ -115,6 +115,9 @@ func (c CollectMove) Validate(gems items.GemCount) error {
 				return fmt.Errorf("Cannot take 2 when fewer than 4 remain")
 			}
 		}
+		if v > 2 {
+			return fmt.Errorf("Cannot take 3 of the same color")
+		}
 		total += v
 	}
 

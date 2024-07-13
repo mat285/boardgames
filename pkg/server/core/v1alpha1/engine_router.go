@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/blend/go-sdk/uuid"
 	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
@@ -13,11 +14,16 @@ import (
 
 type EngineRouter struct {
 	connection.Router
+
+	clientEnginesLock sync.Mutex
+	clientEngines     map[string]map[string]bool
 }
 
 func NewEngineRouter() *EngineRouter {
 	s := &EngineRouter{
 		Router: router.NewRouter(),
+
+		clientEngines: make(map[string]map[string]bool),
 	}
 	return s
 }
@@ -39,8 +45,8 @@ func (r *EngineRouter) GetEngine(id uuid.UUID) *engine.Engine {
 	return typed
 }
 
-func (r *EngineRouter) NewEngine(ctx context.Context, g v1alpha1.Game) (*engine.Engine, error) {
-	e := engine.NewEngine(g)
+func (r *EngineRouter) NewEngine(ctx context.Context, g v1alpha1.Game, host *engine.Player) (*engine.Engine, error) {
+	e := engine.NewEngine(g, host)
 	pipe := PipeEngine(e)
 	err := r.ConnectServer(ctx, pipe)
 	if err != nil {
@@ -66,5 +72,34 @@ func (r *EngineRouter) Join(ctx context.Context, clientID uuid.UUID, engine uuid
 	if e == nil {
 		return fmt.Errorf("No Engine")
 	}
-	return e.Join(ctx, client)
+	err := e.Join(ctx, client)
+	if err != nil {
+		return err
+	}
+	r.clientEnginesLock.Lock()
+	if _, has := r.clientEngines[clientID.ToFullString()]; !has {
+		r.clientEngines[clientID.ToFullString()] = make(map[string]bool)
+	}
+	r.clientEngines[clientID.ToFullString()][engine.ToFullString()] = true
+	r.clientEnginesLock.Unlock()
+
+	return nil
+}
+
+func (r *EngineRouter) ClientEngines(ctx context.Context, client uuid.UUID) []*engine.Engine {
+	r.clientEnginesLock.Lock()
+	engines := r.clientEngines[client.ToFullString()]
+	r.clientEnginesLock.Unlock()
+	ret := make([]*engine.Engine, 0, len(engines))
+	for e, has := range engines {
+		if !has {
+			continue
+		}
+		id, err := uuid.Parse(e)
+		if err != nil {
+			continue
+		}
+		ret = append(ret, r.GetEngine(id))
+	}
+	return ret
 }
