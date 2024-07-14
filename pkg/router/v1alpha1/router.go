@@ -10,9 +10,9 @@ import (
 	wire "github.com/mat285/boardgames/pkg/wire/v1alpha1"
 )
 
-var (
-	_ connection.Router = new(Router)
-)
+// var (
+// 	_ connection.Router = new(Router)
+// )
 
 type Router struct {
 	sync.Mutex
@@ -73,7 +73,7 @@ func (s *Router) GetServer(id uuid.UUID) connection.ServerInfo {
 	return s.servers[id.ToFullString()]
 }
 
-func (s *Router) GetClient(id uuid.UUID) connection.ClientInfo {
+func (s *Router) GetClient(id uuid.UUID) *connection.MultiConn {
 	s.Lock()
 	defer s.Unlock()
 	return s.clients[id.ToFullString()]

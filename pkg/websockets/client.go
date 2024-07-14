@@ -31,7 +31,7 @@ type Client struct {
 	username string
 	lock     sync.Mutex
 
-	conn *websocket.Conn
+	conn *Conn
 
 	outbound chan *Packet
 	inbound  chan Packet
@@ -54,7 +54,7 @@ func NewClient(id uuid.UUID, username string, conn *websocket.Conn, c chan Packe
 	return &Client{
 		id:       id,
 		username: username,
-		conn:     conn,
+		conn:     &Conn{conn: conn},
 		outbound: make(chan *Packet, 32),
 		inbound:  c,
 	}
@@ -81,7 +81,7 @@ func (c *Client) isOpen() bool {
 	return c.getConn() != nil
 }
 
-func (c *Client) getConn() *websocket.Conn {
+func (c *Client) getConn() *Conn {
 	return c.conn
 }
 
@@ -105,14 +105,17 @@ func (c *Client) Start(ctx context.Context) error {
 	var wg sync.WaitGroup
 	wg.Add(3)
 	go func(wg *sync.WaitGroup) {
+		defer recover()
 		defer wg.Done()
 		errs <- c.pingLoop(c.rwCtx)
 	}(&wg)
 	go func(wg *sync.WaitGroup) {
+		defer recover()
 		defer wg.Done()
 		errs <- c.write(c.rwCtx)
 	}(&wg)
 	go func(wg *sync.WaitGroup) {
+		defer recover()
 		defer wg.Done()
 		errs <- c.read(c.rwCtx)
 	}(&wg)
@@ -192,13 +195,11 @@ func (c *Client) pingLoop(ctx context.Context) error {
 }
 
 func (c *Client) writeMessage(packet Packet) error {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-	if c.conn == nil {
+	conn := c.getConn()
+	if conn == nil {
 		return fmt.Errorf("closed websocket connection")
 	}
-	c.conn.SetWriteDeadline(time.Now().Add(writeWait))
-	err := c.conn.WriteMessage(packet.Type, packet.Data)
+	err := conn.Write(packet)
 	if err != nil {
 		return err
 	}
@@ -232,6 +233,14 @@ func (c *Client) write(ctx context.Context) error {
 	}
 }
 
+func (c *Client) readMessage(ctx context.Context) (int, []byte, error) {
+	conn := c.getConn()
+	if conn == nil {
+		return -1, nil, fmt.Errorf("closed websocket connection")
+	}
+	return conn.Read()
+}
+
 func (c *Client) read(ctx context.Context) error {
 	log := logger.GetLogger(ctx)
 
@@ -239,11 +248,6 @@ func (c *Client) read(ctx context.Context) error {
 	if conn == nil {
 		return fmt.Errorf("no connection open to read")
 	}
-
-	// conn.SetPongHandler(func(string) error {
-	// 	c.conn.SetReadDeadline(time.Now().Add(pongWait))
-	// 	return nil
-	// })
 
 	for {
 		// check ctx first then fall through
@@ -253,11 +257,7 @@ func (c *Client) read(ctx context.Context) error {
 		default:
 		}
 
-		// c.lock.Lock()
-		conn.SetReadLimit(maxMessageSize)
-		conn.SetReadDeadline(time.Now().Add(pongWait))
-		t, rawData, err := conn.ReadMessage()
-		// c.lock.Unlock()
+		t, rawData, err := c.readMessage(ctx)
 		if err != nil {
 			logger.MaybeErrorContext(ctx, log, err)
 			return err

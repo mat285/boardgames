@@ -111,14 +111,9 @@ func (s *Server) OpenWebSocketsConnection(w http.ResponseWriter, r *http.Request
 		return
 		// write err
 	}
-	client, ok := s.Router.GetClient(userID).(*Websocket)
-	if client != nil && ok {
-		client.NewConnection(s.Ctx, conn)
-	} else {
-		client = NewWebsocket(userID, username, conn, s.InboundPackets)
-		s.Router.ConnectClient(s.Ctx, client)
-		client.Open(s.Ctx)
-	}
+	client := NewWebsocket(userID, username, conn, s.InboundPackets)
+	s.Router.ConnectClient(s.Ctx, client)
+	client.Open(s.Ctx)
 }
 
 type UserGame struct {
@@ -236,24 +231,4 @@ func (s *Server) SendPacket(r *web.Ctx) web.Result {
 		return web.JSON.BadRequest(err)
 	}
 	return s.stateResponse(e)
-}
-
-func (s *Server) ClientPoll(r *web.Ctx) web.Result {
-	id, err := web.UUIDValue(r.Param("id"))
-	if err != nil {
-		return web.JSON.BadRequest(err)
-	}
-	client := s.Router.GetClient(id)
-	if client == nil {
-		return web.JSON.BadRequest(fmt.Errorf("Not connected"))
-	}
-	poller, ok := client.(*PollClient)
-	if !ok {
-		return web.JSON.InternalError(fmt.Errorf("bad type"))
-	}
-	packet := poller.Poll(r.Context())
-	if packet == nil {
-		return web.JSON.Status(http.StatusNoContent, nil)
-	}
-	return web.JSON.Result(packet)
 }

@@ -6,14 +6,13 @@ import (
 	"sync"
 
 	"github.com/blend/go-sdk/uuid"
-	connection "github.com/mat285/boardgames/pkg/connection/v1alpha1"
 	engine "github.com/mat285/boardgames/pkg/engine/v1alpha1"
 	"github.com/mat285/boardgames/pkg/game/v1alpha1"
 	router "github.com/mat285/boardgames/pkg/router/v1alpha1"
 )
 
 type EngineRouter struct {
-	connection.Router
+	*router.Router
 
 	clientEnginesLock sync.Mutex
 	clientEngines     map[string]map[string]bool

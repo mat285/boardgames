@@ -337,7 +337,7 @@ func (p *Terminal) HandleMessage(ctx context.Context, entry string) (result stri
 			return
 		}
 		for i, player := range p.State.Players {
-			result += fmt.Sprintln(i, player.ID, jsonMarshal(player.Hand))
+			result += fmt.Sprintln(i, player.Username, player.ID, jsonMarshal(player.Hand))
 		}
 		return
 	case "player":
