@@ -52,6 +52,7 @@ func (s *Server) Start() error {
 	}
 	app, err := web.New(
 		web.OptConfig(s.Config.Web),
+		web.OptTLSConfig(s.Config.TLS.TLSConfig()),
 		web.OptBaseContext(s.Ctx),
 		web.OptLog(logger.GetLogger(s.Ctx)),
 	)

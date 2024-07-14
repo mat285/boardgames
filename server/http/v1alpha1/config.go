@@ -12,6 +12,7 @@ import (
 
 type Config struct {
 	Web web.Config `json:"web" yaml:"web"`
+	TLS TLS        `json:"tls" yaml:"tls"`
 }
 
 // Resolve populates configuration fields from a variety of input sources

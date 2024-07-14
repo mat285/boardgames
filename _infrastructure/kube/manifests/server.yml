@@ -26,12 +26,19 @@ spec:
         app.boardgames.churners.network/name: server
         app-instance: server
     spec:
+      volumes:
+      - name: certs
+        secret: 
+          secretName: external-wildcard
       serviceAccountName: server
       containers:
       - name: boardgames
         image: kube-registry:5000/boardgames:latest
         ports:
         - containerPort: 8080
+        volumeMounts:
+        - name: certs
+          mountPath: /var/tls-certs
 
 ---
 
