@@ -1,3 +1,14 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: server
+  namespace: boardgames
+  labels:
+    app.boardgames.churners.network/name: server
+data:
+  config.yml: d2ViOgogIHBvcnQ6IDgwODAKCnRsczogCiAgY2VydEZpbGU6IC92YXIvdGxzLWNlcnRzL3Rscy5jcnQKICBrZXlGaWxlOiAvdmFyL3Rscy1jZXJ0cy90bHMua2V5
+
+---
 
 apiVersion: v1
 kind: ServiceAccount
@@ -30,15 +41,23 @@ spec:
       - name: certs
         secret: 
           secretName: external-wildcard
+      - name: config
+        secret: 
+          secretName: server
       serviceAccountName: server
       containers:
       - name: boardgames
         image: kube-registry:5000/boardgames:latest
+        args:
+        - --file
+        - /var/config/config.yml
         ports:
         - containerPort: 8080
         volumeMounts:
         - name: certs
           mountPath: /var/tls-certs
+        - name: config
+          mountPath: /var/config
 
 ---
 

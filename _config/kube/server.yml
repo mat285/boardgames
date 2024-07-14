@@ -1,0 +1,6 @@
+web:
+  port: 8080
+
+tls: 
+  certFile: /var/tls-certs/tls.crt
+  keyFile: /var/tls-certs/tls.key

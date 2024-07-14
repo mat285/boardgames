@@ -13,3 +13,8 @@ k8s-apply:
 
 .PHONY: k8s-deploy
 k8s-deploy: docker-build-server docker-push-server k8s-apply
+
+
+.PHONY: run-server
+run-server:
+	@go run cmd/run-server/main.go --file _config/dev/server.yml
