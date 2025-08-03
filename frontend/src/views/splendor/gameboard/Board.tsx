@@ -15,6 +15,7 @@ import useApi from '@/hooks/splendor/api/useApi'
 
 import type { Board } from '@/types/splendor/games'
 import GemBank from './GemBank'
+import Bonus from '@/components/games/spendor/bonus/Bonus'
 
 
 
@@ -63,33 +64,17 @@ const Board = () => {
                 <CardContent>
                     <Grid container spacing={2}>
                         <Grid item xs={3}>
-                            <Card>
-                                <CardContent>
-                                    <Typography>Bonus 1</Typography>
-                                </CardContent>
-                            </Card>
+                            <Bonus bonus={board.bonuses[0]} />
                         </Grid>
                         <Grid item xs={3}>
-                            <Card>
-                                <CardContent>
-                                    <Typography>Bonus 2</Typography>
-                                </CardContent>
-                            </Card>
+                            <Bonus bonus={board.bonuses[1]} />
                         </Grid>
                         <Grid item xs={3}>
-                            <Card>
-                                <CardContent>
-                                    <Typography>Bonus 3</Typography>
-                                </CardContent>
-                            </Card>
+                            <Bonus bonus={board.bonuses[2]} />
                         </Grid>
                         <Grid item xs={3}>
-                            <Card>
-                                <CardContent>
-                                    <Typography>Bonus 4</Typography>
-                                </CardContent>
-                            </Card>
-                            </Grid>
+                            <Bonus bonus={board.bonuses[3]} />
+                        </Grid>
                     </Grid>
                 </CardContent>
             </Card>

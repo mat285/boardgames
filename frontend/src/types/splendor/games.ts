@@ -83,7 +83,7 @@ export interface Card {
 }
 
 export interface Bonus {
-    id: string
+    id: number
     name: string
     description: string
     image: string

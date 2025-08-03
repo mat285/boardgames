@@ -18,3 +18,7 @@ k8s-deploy: docker-build-server docker-push-server k8s-apply
 .PHONY: run-server
 run-server:
 	@go run cmd/run-server/main.go --file _config/dev/server.yml
+
+.PHONY: run-frontend
+run-frontend:
+	@cd frontend && npm run dev

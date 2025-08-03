@@ -62,7 +62,32 @@ const MockGamesApiClient: GamesApi = {
                 },
                 board: {
                     gems: cost,
-                    bonuses: [],
+                    bonuses: [
+                        {
+                            id: 1,
+                            name: "Bonus 1",
+                            description: "Bonus 1",
+                            image: "https://via.placeholder.com/150",
+                        },
+                        {
+                            id: 2,
+                            name: "Bonus 2",
+                            description: "Bonus 2",
+                            image: "https://via.placeholder.com/150",
+                        },
+                        {
+                            id: 3,
+                            name: "Bonus 3",
+                            description: "Bonus 3",
+                            image: "https://via.placeholder.com/150",
+                        },
+                        {
+                            id: 4,
+                            name: "Bonus 4",
+                            description: "Bonus 4",
+                            image: "https://via.placeholder.com/150",
+                        },
+                    ],
                     levelOne: {
                         shown: mockShown,
                         hidden: []
