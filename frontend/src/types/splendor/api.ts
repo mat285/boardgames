@@ -16,10 +16,10 @@ export interface GamesApi {
     startGame: (id: string) => Promise<Game>
     getGameState: (id: string) => Promise<GameState>
     getGamePacket: (id: string) => Promise<GamePacket>
+    getUserGames: () => Promise<Game[]>
 }
 
 export interface UserApi {
-    getUserGames: () => Promise<Game[]>
     getUserLogin: (username: string, password: string) => Promise<User>
 }
 

@@ -60,13 +60,22 @@ export interface Board {
     bonuses: Bonus[]
 }
 
+export enum Gem {
+    Emerald = "emerald",
+    Sapphire = "sapphire",
+    Ruby = "ruby",
+    Diamond = "diamond",
+    Obsidian = "obsidian",
+    Wild = "wild"
+}
+
 export interface GemCount {
-    emerald: number
-    sapphire: number
-    ruby: number
-    diamond: number
-    obsidian: number
-    wild: number
+    [Gem.Emerald]: number
+    [Gem.Sapphire]: number
+    [Gem.Ruby]: number
+    [Gem.Diamond]: number
+    [Gem.Obsidian]: number
+    [Gem.Wild]: number
 }
 
 export interface Deck {

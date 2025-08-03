@@ -13,11 +13,13 @@ import type { Player } from '@/types/splendor/games'
 
 export type PlayerHandProps = {
   player: Player | null
+  orientation: 'vertical' | 'horizontal'
 }
 
 
 const PlayerHand = (props: PlayerHandProps) => {
   let { player } = props
+  const orientation = props.orientation
 
   if (!player) {
 
@@ -38,6 +40,16 @@ const PlayerHand = (props: PlayerHandProps) => {
         bonus: [],
       },
     }
+  }
+
+  if (orientation === 'vertical') {
+    return (
+      <Card>
+        <CardHeader
+          title={player.username}
+        />
+      </Card>
+    )
   }
 
   return (

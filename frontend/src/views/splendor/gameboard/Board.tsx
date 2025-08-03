@@ -1,5 +1,4 @@
 'use client'
-import { useEffect, useState } from 'react'
 
 // MUI Imports
 import Card from '@mui/material/Card'
@@ -11,41 +10,21 @@ import { Grid } from '@mui/material'
 
 import SplendorCard from '@/components/games/spendor/cards/Card'
 
-import useApi from '@/hooks/splendor/api/useApi'
-
-import type { Board } from '@/types/splendor/games'
+import type { Board, GameState } from '@/types/splendor/games'
 import GemBank from './GemBank'
 import Bonus from '@/components/games/spendor/bonus/Bonus'
 
 
-
-const Board = () => {
-
-    const { games }   = useApi();
-
-    const [loading, setLoading] = useState(true);
-    const [board, setBoard] = useState<Board | null>(null);
-
-    // useInterval(() => {
-
-    //     setLoading(true);
-    //     games.getGameState("").then((state) => {
-    //         console.log(state);
-    //         setBoard(state.board);
-    //         setLoading(false);
-    //     });
-    // }, 1000);
-
-    useEffect(() => {
-        games.getGameState("").then((state) => {
-            console.log(state);
-            setBoard(state.board);
-            setLoading(false);
-        });
-    }, []);
+export type BoardProps = {
+    gameState: GameState | null
+    loading: boolean
+}
 
 
-  // Vars
+const Board = (props: BoardProps) => {
+    const { gameState, loading } = props;
+    const board = gameState?.board;
+
   return (
     <Card sx={{ width: '100%' }}>
     {loading && (

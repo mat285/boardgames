@@ -63,6 +63,11 @@ func (s *Server) Start() error {
 
 	s.App.Register(s)
 	go s.receivePackets()
+
+	s.Users["test"] = uuid.V4()
+	s.Users["test2"] = uuid.V4()
+	s.Users["test3"] = uuid.V4()
+
 	return s.App.Start()
 }
 

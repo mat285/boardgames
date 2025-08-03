@@ -51,7 +51,38 @@ const MockGamesApiClient: GamesApi = {
 
             const mockState: GameState = {
                 turn: 0,
-                players: [],
+                players: [
+                    {
+                        id: "1",
+                        username: "Player 1",
+                        hand: {
+                            cards: [],
+                            reserved: [],
+                            bonus: [],
+                            gems: cost,
+                        },
+                    },
+                    {
+                        id: "2",
+                        username: "Player 2",
+                        hand: {
+                            cards: [],
+                            reserved: [],
+                            bonus: [],
+                            gems: cost,
+                        },
+                    },
+                    {
+                        id: "3",
+                        username: "Player 3",
+                        hand: {
+                            cards: [],
+                            reserved: [],
+                            bonus: [],
+                            gems: cost,
+                        },
+                    },
+                ],
                 currentPlayer: "",
                 done: false,
                 config: {
@@ -105,11 +136,11 @@ const MockGamesApiClient: GamesApi = {
 
             return Promise.resolve(mockState)
         },
+        getUserGames: async () => Promise.resolve([]), // apiGet(API_ROUTE_USER_GAMES),
     getGamePacket: async (id: string) => Promise.resolve({} as GamePacket), // apiGet(API_ROUTE_GAME_PACKET + '/' + id),
 }
 
 const MockUserApiClient: UserApi = {
-    getUserGames: async () => Promise.resolve([]), // apiGet(API_ROUTE_USER_GAMES),
     getUserLogin: async (username: string, password: string) => Promise.resolve({} as User), // apiPost(API_ROUTE_USER_LOGIN, { username, password }),
 }
 

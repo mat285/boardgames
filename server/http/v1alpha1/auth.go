@@ -21,15 +21,15 @@ func (s *Server) CurrentUser(r *web.Ctx) (uuid.UUID, string, error) {
 		return nil, "", fmt.Errorf("missing username")
 	}
 
-	userID, err := uuidHeaderValue(r, HeaderKeyUserID)
-	if err != nil {
-		return nil, "", fmt.Errorf("missing user id")
-	}
+	// userID, err := uuidHeaderValue(r, HeaderKeyUserID)
+	// if err != nil {
+	// 	return nil, "", fmt.Errorf("missing user id")
+	// }
 
 	expected := s.GetUserID(username)
-	if !userID.Equal(expected) {
-		return nil, "", fmt.Errorf("invalid user id")
-	}
+	// if !userID.Equal(expected) {
+	// 	return nil, "", fmt.Errorf("invalid user id")
+	// }
 
 	return expected, username, err
 }
