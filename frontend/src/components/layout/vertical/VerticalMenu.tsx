@@ -75,31 +75,6 @@ const VerticalMenu = ({ scrollMenu }: { scrollMenu: (container: any, isPerfectSc
           </MenuItem>
 
         </SubMenu>
-          <MenuItem href='/account-settings' icon={<i className='ri-user-settings-line' />}>
-            Account Settings
-          </MenuItem>
-          <SubMenu label='Auth Pages' icon={<i className='ri-shield-keyhole-line' />}>
-            <MenuItem href='/login' target='_blank'>
-              Login
-            </MenuItem>
-            <MenuItem href='/register' target='_blank'>
-              Register
-            </MenuItem>
-            <MenuItem href='/forgot-password' target='_blank'>
-              Forgot Password
-            </MenuItem>
-          </SubMenu>
-          <SubMenu label='Miscellaneous' icon={<i className='ri-question-line' />}>
-            <MenuItem href='/error' target='_blank'>
-              Error
-            </MenuItem>
-            <MenuItem href='/under-maintenance' target='_blank'>
-              Under Maintenance
-            </MenuItem>
-          </SubMenu>
-          <MenuItem href='/card-basic' icon={<i className='ri-bar-chart-box-line' />}>
-            Cards
-          </MenuItem>
         </MenuSection>
       </Menu>
     </ScrollWrapper>

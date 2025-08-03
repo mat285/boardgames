@@ -2,8 +2,8 @@
 import Grid from '@mui/material/Grid'
 
 // Components Imports
-import PlayerHand from '@/views/gameboard/PlayerHand'
-import Board from '@/views/gameboard/Board'
+import PlayerHand from '@/views/splendor/gameboard/PlayerHand'
+import Board from '@/views/splendor/gameboard/Board'
 
 const GameBoard = () => {
   return (

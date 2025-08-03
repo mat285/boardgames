@@ -7,10 +7,9 @@ import type { CSSProperties } from 'react'
 import styled from '@emotion/styled'
 
 // Component Imports
-import MaterioLogo from '@core/svg/Logo'
+import { Grid } from '@mui/material'
 
-// Config Imports
-import themeConfig from '@configs/themeConfig'
+import NoriLogo from '@core/svg/Logo'
 
 type LogoTextProps = {
   color?: CSSProperties['color']
@@ -29,8 +28,16 @@ const LogoText = styled.span<LogoTextProps>`
 const Logo = ({ color }: { color?: CSSProperties['color'] }) => {
   return (
     <div className='flex items-center min-bs-[24px]'>
-      <MaterioLogo className='text-[22px] text-primary' />
-      <LogoText color={color}>Boardgames</LogoText>
+      <Grid container xs={6} spacing={0}>
+        <Grid item xs={6}>
+          <NoriLogo />
+        </Grid>
+        <Grid item xs={8} mt={-6}>
+          <div className='flex flex-col'>
+            <LogoText color={color}>Splendor</LogoText>
+          </div>
+        </Grid>
+      </Grid>
     </div>
   )
 }

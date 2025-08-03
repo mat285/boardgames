@@ -1,5 +1,3 @@
-const NoriLogo = () => {
-  return (
 <svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="90" height="120" viewBox="0 0 600.000000 600.000000" preserveAspectRatio="xMidYMid meet">
   <g transform="translate(-500.000000,600.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none">
   <path d="M5195 7117 c-20 -16 -27 -33 -28 -60 -1 -32 6 -45 44 -82 l44 -45 60 60 60 61 -47 44 c-54 52 -92 58 -133 22z"/>
@@ -21,7 +19,3 @@ const NoriLogo = () => {
   <path d="M8296 2613 c-3 -21 -8 -66 -12 -100 -7 -72 -4 -74 64 -43 l43 19 -16 38 c-17 41 -64 123 -70 123 -2 0 -6 -17 -9 -37z"/>
   </g>
 </svg>
-)
-}
-
-export default NoriLogo
