@@ -1,14 +1,12 @@
+'use client'
 // Component Imports
 import UnderMaintenance from '@views/pages/misc/UnderMaintenance'
 
-// Server Action Imports
-import { getServerMode } from '@core/utils/serverHelpers'
+import themeConfig from '@/configs/themeConfig'
 
 const UnderMaintenancePage = () => {
   // Vars
-  const mode = getServerMode()
-
-  return <UnderMaintenance mode={mode} />
+  return <UnderMaintenance mode={themeConfig.mode} />
 }
 
 export default UnderMaintenancePage

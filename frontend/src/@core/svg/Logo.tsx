@@ -1,4 +1,4 @@
-const NoriLogo = () => {
+const Logo = () => {
   return (
 <svg xmlns="http://www.w3.org/2000/svg" version="1.0" width="90" height="120" viewBox="0 0 600.000000 600.000000" preserveAspectRatio="xMidYMid meet">
   <g transform="translate(-500.000000,600.000000) scale(0.100000,-0.100000)" fill="#000000" stroke="none">
@@ -24,4 +24,4 @@ const NoriLogo = () => {
 )
 }
 
-export default NoriLogo
+export default Logo

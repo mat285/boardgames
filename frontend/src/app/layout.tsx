@@ -1,3 +1,5 @@
+'use client'
+
 // Third-party Imports
 import 'react-perfect-scrollbar/dist/css/styles.css'
 
@@ -5,16 +7,10 @@ import 'react-perfect-scrollbar/dist/css/styles.css'
 import type { ChildrenType } from '@core/types'
 
 // Style Imports
-import '@/app/globals.css'
+// import '@assets/css/globals.css'
 
 // Generated Icon CSS Imports
-import '@assets/iconify-icons/generated-icons.css'
-
-export const metadata = {
-  title: 'Demo: Materio - NextJS Dashboard Free',
-  description:
-    'Develop next-level web apps with Materio Dashboard Free - NextJS. Now, updated with lightning-fast routing powered by MUI and App router.'
-}
+// import '@assets/iconify-icons/generated-icons.css'
 
 const RootLayout = ({ children }: ChildrenType) => {
   // Vars
@@ -26,5 +22,6 @@ const RootLayout = ({ children }: ChildrenType) => {
     </html>
   )
 }
+
 
 export default RootLayout

@@ -1,14 +1,24 @@
+'use client'
+import themeConfig from '@/configs/themeConfig'
+import { UserContext } from '@/@contexts/User'
 // Component Imports
 import Login from '@views/Login'
+import { useRouter } from 'next/navigation'
+import { useContext } from 'react'
 
-// Server Action Imports
-import { getServerMode } from '@core/utils/serverHelpers'
 
 const LoginPage = () => {
   // Vars
-  const mode = getServerMode()
+  const router = useRouter()
 
-  return <Login mode={mode} />
+  const { user } = useContext(UserContext)
+
+  if (user) {
+    router.push('/')
+    return <></>
+  }
+
+  return <Login />
 }
 
 export default LoginPage

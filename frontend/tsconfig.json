@@ -31,23 +31,68 @@
       "@core/*": [
         "./src/@core/*"
       ],
+      "@core/svg/*": [
+        "./src/@core/svg/*"
+      ],
       "@layouts/*": [
         "./src/@layouts/*"
+      ],
+      "@layouts/utils/*": [
+        "./src/@layouts/utils/*"
       ],
       "@menu/*": [
         "./src/@menu/*"
       ],
+      "@menu/contexts/*": [
+        "./src/@menu/contexts/*"
+      ],
       "@assets/*": [
         "./src/assets/*"
       ],
+      "@assets/iconify-icons/*": [
+        "./src/assets/iconify-icons/*"
+      ],
       "@components/*": [
-        "./src/components/*"
+        "./src/@components/*"
+      ],
+      "@components/layout/*": [
+        "./src/@components/layout/*"
+      ],
+      "@components/layout/vertical/*": [
+        "./src/@components/layout/vertical/*"
+      ],
+      "@components/layout/shared/*": [
+        "./src/@components/layout/shared/*"
+      ],
+      "@components/theme/*": [
+        "./src/@components/theme/*"
       ],
       "@configs/*": [
         "./src/configs/*"
       ],
       "@views/*": [
         "./src/views/*"
+      ],
+      "@hooks/*": [
+        "./src/@hooks/*"
+      ],
+      "@hooks/splendor/*": [
+        "./src/@hooks/splendor/*"
+      ],
+      "@hooks/splendor/api/*": [
+        "./src/@hooks/splendor/api/*"
+      ],
+      "@types/*": [
+        "./src/@types/*"
+      ],
+      "@types/splendor/*": [
+        "./src/@types/splendor/*"
+      ],
+      "@contexts/*": [
+        "./src/@contexts/*"
+      ],
+      "@images/*": [
+        "./public/images/*"
       ]
     }
   },
@@ -57,7 +102,8 @@
     "next-env.d.ts",
     "**/*.ts",
     "**/*.tsx",
-    ".next/types/**/*.ts"
+    ".next/types/**/*.ts",
+    "**/*.d.ts"
   ],
   "exclude": [
     "node_modules"

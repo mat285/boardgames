@@ -1,6 +1,8 @@
 package v1alpha1
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,7 +20,7 @@ import (
 func (s *Server) Register(app *web.App) {
 
 	app.POST("/api/v1alpha1/user/login", s.Login)
-
+	app.GET("/api/v1alpha1/user", s.GetCurrentUser)
 	app.GET("/api/v1alpha1/registry", s.ListGamesNames)
 	// app.GET("/api/v1alpha1/user/:name", s.GetUserID)
 
@@ -32,6 +34,14 @@ func (s *Server) Register(app *web.App) {
 
 	app.RouteTree.Handle("GET", "/api/v1alpha1/websockets/:name", s.OpenWebSocketsConnection)
 
+}
+
+func (s *Server) GetCurrentUser(r *web.Ctx) web.Result {
+	userID, username, err := s.CurrentUser(r)
+	if err != nil {
+		return web.JSON.BadRequest(err)
+	}
+	return web.JSON.Result(game.Player{ID: userID, Username: username})
 }
 
 func (s *Server) ListGamesNames(r *web.Ctx) web.Result {
@@ -49,6 +59,15 @@ func (s *Server) Login(r *web.Ctx) web.Result {
 	}
 	id := s.GetOrSetUserID(p.Username)
 	p.ID = id
+	data, err := json.Marshal(p)
+	if err != nil {
+		return web.JSON.BadRequest(err)
+	}
+	encoded := base64.StdEncoding.EncodeToString(data)
+	http.SetCookie(r.Response, &http.Cookie{
+		Name:  "splendor_user",
+		Value: encoded,
+	})
 	return web.JSON.Result(p)
 }
 

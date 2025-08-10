@@ -9,7 +9,7 @@ import CardContent from '@mui/material/CardContent'
 // Components Imports
 import { Grid } from '@mui/material'
 
-import type { Player } from '@/types/splendor/games'
+import type { Player } from '@types/splendor/games'
 
 export type PlayerHandProps = {
   player: Player | null
@@ -63,44 +63,44 @@ const PlayerHand = (props: PlayerHandProps) => {
             <Card>
               <CardHeader title='Gems' />
               <CardContent>
-              <Grid container spacing={8}>
-                <Grid item xs={2}>
+                <Grid container spacing={8}>
+                  <Grid item xs={2}>
                     <Typography>Rubys</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>Sapphire</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>Emeralds</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>Diamonds</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>Obsidian</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>Wild</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>{player.hand.gems.ruby}</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>{player.hand.gems.sapphire}</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>{player.hand.gems.emerald}</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>{player.hand.gems.diamond}</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>{player.hand.gems.obsidian}</Typography>
-                </Grid>
-                <Grid item xs={2}>
+                  </Grid>
+                  <Grid item xs={2}>
                     <Typography>{player.hand.gems.wild}</Typography>
+                  </Grid>
                 </Grid>
-            </Grid>
               </CardContent>
             </Card>
           </Grid>

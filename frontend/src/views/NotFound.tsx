@@ -7,22 +7,12 @@ import Link from 'next/link'
 import Button from '@mui/material/Button'
 import Typography from '@mui/material/Typography'
 
-// Type Imports
-import type { Mode } from '@core/types'
-
-// Component Imports
-import Illustrations from '@components/Illustrations'
-
-// Hook Imports
-import { useImageVariant } from '@core/hooks/useImageVariant'
 
 const NotFound = ({ mode }: { mode: Mode }) => {
   // Vars
   const darkImg = '/images/pages/misc-mask-dark.png'
   const lightImg = '/images/pages/misc-mask-light.png'
 
-  // Hooks
-  const miscBackground = useImageVariant(mode, lightImg, darkImg)
 
   return (
     <div className='flex items-center justify-center min-bs-[100dvh] relative p-6 overflow-x-hidden'>
@@ -43,7 +33,6 @@ const NotFound = ({ mode }: { mode: Mode }) => {
           Back to Home
         </Button>
       </div>
-      <Illustrations maskImg={{ src: miscBackground }} />
     </div>
   )
 }

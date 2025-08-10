@@ -1,7 +1,7 @@
-import 'server-only'
+'use client'
 
 // Next Imports
-import { cookies } from 'next/headers'
+import { Cookies } from 'react-cookie'
 
 // Type Imports
 import type { Settings } from '@core/contexts/settingsContext'
@@ -11,7 +11,7 @@ import type { SystemMode } from '@core/types'
 import themeConfig from '@configs/themeConfig'
 
 export const getSettingsFromCookie = (): Settings => {
-  const cookieStore = cookies()
+  const cookieStore = new Cookies();
 
   const cookieName = themeConfig.settingsCookieName
 
@@ -19,12 +19,7 @@ export const getSettingsFromCookie = (): Settings => {
 }
 
 export const getMode = () => {
-  const settingsCookie = getSettingsFromCookie()
-
-  // Get mode from cookie or fallback to theme config
-  const _mode = settingsCookie.mode || themeConfig.mode
-
-  return _mode
+  return themeConfig.mode
 }
 
 export const getSystemMode = (): SystemMode => {
